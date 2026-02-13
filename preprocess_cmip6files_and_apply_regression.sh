@@ -1,11 +1,14 @@
 #!/bin/bash
 
+# Load cdo
+module load cdo
+
 # ==========================
 # Arguments
 # ==========================
 hist_file="$1"
 proj_file="$2"
-n_days="${3:-1}"   # default = 1 if not given
+n_days="${3:-1}"   # An odd number between 1 and 31, default = 1 if not given. 
 
 if [[ -z "$hist_file" || -z "$proj_file" ]]; then
     echo "Usage: $0 <historical_file> <ssp_file>"
@@ -44,7 +47,51 @@ echo "Merging files..."
 cdo mergetime "$hist_file" "$proj_file" "$merged_file"
 
 # ==========================
-# Step 2: Remove leap days / Select correct period
+# Step 2: Compute yearly global anomaly relative to the year 2000
+# ==========================
+
+anomaly_dir="/scratch/project_2014701/yearly_anomalies/${scenario2}"
+mkdir -p "$anomaly_dir"
+
+path2zaxis="/scratch/project_2014701/zaxis.txt"
+
+temp1="${anomaly_dir}/tas_${model}_1850_2000.nc"
+temp2="${anomaly_dir}/tas_global_mean_${model}_2000.nc"
+temp3="${anomaly_dir}/tas_global_mean_${model}.nc"
+temp4="${anomaly_dir}/${model}_Tglob_${scenario2}_1901-2099_minus_T2000.nc"
+temp5="${anomaly_dir}/${model}_level_set.nc"
+temp6="${anomaly_dir}/${model}_zaxis_set.nc"
+final_anomaly="${anomaly_dir}/${model}_tas_renamed_${scenario2}.nc"
+
+echo "Computing yearly global anomaly..."
+
+# Yearly global mean
+cdo yearmean -fldmean "$merged_file" "$temp1"
+
+# Baseline year 2000
+cdo selyear,2000 "$temp1" "$temp2"
+
+# Subtract baseline
+cdo sub "$temp1" "$temp2" "$temp3"
+
+# Extract years 1901–2099
+cdo selyear,1901/2099 "$temp3" "$temp4"
+
+# Set level + zaxis
+cdo setlevel,1 "$temp4" "$temp5"
+cdo -O setzaxis,"$path2zaxis" "$temp5" "$temp6"
+
+# Rename variable
+cdo chname,tas,"tas_${model}" "$temp6" "$final_anomaly"
+
+# Cleanup
+rm -f "$temp1" "$temp2" "$temp3" "$temp4" "$temp5" "$temp6"
+
+echo "Anomaly file created: $final_anomaly"
+
+
+# ==========================
+# Step 3: Prepare a time-series of simulated daily temperature
 # ==========================
 noleap_file="${ts_dir}/${model}_${var}_${scenario2}_noleap.nc"
 final_ts_file="${ts_dir}/${model}_${var}_${scenario2}_noleap_1900_2095.nc"
@@ -68,7 +115,7 @@ else
 fi
 
 # ==========================
-# Step 3: Compute g11
+# Step 4: Compute the simulated 11-year running mean of global mean temperature (g11)
 # ==========================
 g11_temp1="${g11_dir}/${model}_g1.nc"
 g11_temp2="${g11_dir}/${model}_g11_temp.nc"
@@ -92,7 +139,7 @@ rm -f "$g11_temp1" "$g11_temp2"
 echo "Pre-processing complete for $model"
 
 # ==========================
-# Step 4: Run regression script
+# Step 5: Run the regression script
 # ==========================
 
 echo "Running regression calculation..."
@@ -100,7 +147,7 @@ echo "Running regression calculation..."
 ts_filename=$(basename "$final_ts_file")
 g11_filename=$(basename "$g11_final")
 
-python calculate_regression_coefficients.py \
+python3 calculate_regression_coefficients.py \
     --ts_file "$ts_filename" \
     --g11_file "$g11_filename" \
     --n_days 1
