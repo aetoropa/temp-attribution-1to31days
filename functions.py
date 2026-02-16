@@ -11,7 +11,10 @@ import pandas as pd
 import xarray as xr
 import os, glob, re
 from pathlib import Path
-from datetime import date, datetime, timedelta
+#from datetime import date, datetime, timedelta
+import datetime as dt
+import xml.etree.ElementTree as ET
+from fmiopendata.wfs import download_stored_query
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.stats import skew, kurtosis
@@ -22,6 +25,7 @@ import concurrent.futures
 import requests
 from io import StringIO
 from tqdm import tqdm
+
 
 
 ############################################################### Functions for handling dates ###################################################################
@@ -41,7 +45,7 @@ def check_date(month:int, day:int) -> None:
     
     try:
         # Construct a date for a non-leap year
-        date_obj = date(2001,month,day)
+        date_obj = dt.date(2001,month,day)
 
     except ValueError:
         # If the date is not valid, the program aborts
@@ -127,7 +131,7 @@ def get_doy_index_and_ndays(start_month:int, start_day:int, end_month:int|None=N
 
 def doy_to_mm_dd(day_of_year: int) -> str:
     """Converts day of year to MM-DD form for a non-leap year."""
-    return (datetime(2001, 1, 1) + timedelta(days=int(day_of_year) - 1)).strftime("%m-%d")
+    return (dt.datetime(2001, 1, 1) + dt.timedelta(days=int(day_of_year) - 1)).strftime("%m-%d")
 
 def get_date_strings(doy_index:int, n_days:int) -> tuple[str,str]:
 
@@ -552,11 +556,6 @@ def read_daily_obs_from_FMI(station_id: int, clim_var: str):
             Contains station metadata
     """
 
-    import requests
-    import datetime as dt
-    import xml.etree.ElementTree as ET
-    from fmiopendata.wfs import download_stored_query
-
     clim_var_map = {"tas": "tday", "tasmax": "tmax", "tasmin": "tmin"}
     if clim_var not in clim_var_map:
         raise ValueError("clim_var must be one of 'tas', 'tasmax', or 'tasmin'")
@@ -726,9 +725,6 @@ def read_daily_obs_from_FROST(frost_client_id: str, metnosid: str, clim_var:str,
             A pivoted DataFrame of daily temperature time series (°C) with year as a row and day_of_year as columns.
     """
 
-    import requests
-    from datetime import datetime
-    
     # Determine the correct Frost variable
     if clim_var == "tas":
         frost_var = "mean"
@@ -761,18 +757,31 @@ def read_daily_obs_from_FROST(frost_client_id: str, metnosid: str, clim_var:str,
         "qualities": "0,1,2,3,4",
     }
 
-    r = requests.get(endpoint, parameters, auth=(frost_client_id, ""))
+    r = requests.get(endpoint, params=parameters, auth=(frost_client_id, ""))
+
+    #print("Status code:", r.status_code)
+    #print("Response text preview:")
+    #print(r.text[:500])
+
+    if r.status_code != 200:
+        print("Error! Returned status code %s" % r.status_code)
+        print("Message:", r.text)
+        raise RuntimeError("Frost API request failed.")
+
+    json_data = r.json()
+    data = json_data["data"]
+
     # Extract JSON data
-    json = r.json()
+#    json = r.json()
 
     # Check if the request worked, print out any errors
-    if r.status_code == 200:
-        data = json["data"]
-    else:
-        print("Error! Returned status code %s" % r.status_code)
-        print("Message: %s" % json["error"]["message"])
-        print("Reason: %s" % json["error"]["reason"])
-        raise RuntimeError(f'{json["error"]["message"]}. {json["error"]["reason"]}')
+ #   if r.status_code == 200:
+  #      data = json["data"]
+   # else:
+    #    print("Error! Returned status code %s" % r.status_code)
+     #   print("Message: %s" % json["error"]["message"])
+      #  print("Reason: %s" % json["error"]["reason"])
+       # raise RuntimeError(f'{json["error"]["message"]}. {json["error"]["reason"]}')
 
     # Create DataFrame from list of dictionaries
     df = pd.concat([pd.DataFrame(data[i]["observations"], index=[pd.to_datetime(data[i]["referenceTime"])]) for i in range(len(data))])
@@ -824,9 +833,7 @@ def get_FROST_station_metadata(frost_client_id: str, metnosid: str):
         Contains station metadata
     """
 
-    import requests
-    from datetime import datetime
-
+    
     endpoint = "https://frost.met.no/sources/v0.jsonld"
     params = {"ids": metnosid}
 
@@ -849,7 +856,7 @@ def get_FROST_station_metadata(frost_client_id: str, metnosid: str):
     valid_from_str = item.get("validFrom")
     if valid_from_str:
         try:
-            start_year = datetime.fromisoformat(valid_from_str.replace("Z", "")).year
+            start_year = dt.datetime.fromisoformat(valid_from_str.replace("Z", "")).year
         except Exception:
             start_year = None
     else:
@@ -936,12 +943,11 @@ def get_SMHI_station_metadata(
         Contains station metadata
     """
 
-    from datetime import datetime
-    var_map = {"tas": 2, "tasmax": 20, "tasmin": 19}
-    if clim_var not in var_map:
+    clim_var_map = {"tas": 2, "tasmax": 20, "tasmin": 19}
+    if clim_var not in clim_var_map:
         raise ValueError("clim_var must be 'tas', 'tasmax', or 'tasmin'")
 
-    parameter_id = var_map[clim_var]
+    parameter_id = clim_var_map[clim_var]
 
     url = (
         f"https://opendata-download-metobs.smhi.se/api/version/1.0/"
@@ -1038,7 +1044,7 @@ def pivot_SMHI_obs(SMHI_obs: pd.DataFrame) -> pd.DataFrame:
 
     return pivot_df
 
-def read_daily_obs(obs_source:str, frost_client_id:str, clim_var:str, station_id:str, station2_id:str|None=None)->tuple[pd.DataFrame, dict]:
+def read_daily_obs(obs_source:str, clim_var:str, station_id:str, station2_id:str|None=None, frost_client_id:str|None=None)->tuple[pd.DataFrame, dict]:
     
     """
     Downloads local daily temperature (mean, max or min) observations of a given weather station from the FMI, SMHI or FROST API.
