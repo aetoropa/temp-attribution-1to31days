@@ -42,7 +42,7 @@ emission scenario and the number of bootstrap samples
 
 # Frost client ID (You need this to download observations from FROST)
 # You can obtain a personal ID from: https://frost.met.no/authentication.html
-frost_client_id = "9a43639e-6f86-4a9e-b664-a2fbddf57b81"
+frost_client_id = ""
 
 # Observations source (FMI, SMHI, FROST)
 obs_source = "FMI"
@@ -56,28 +56,12 @@ station_id = "101932"
 # Climate variable (tas, tasmax, tasmin)
 clim_var = "tasmax"
 
-# Probability of warmer temperatures (colder if false)
-pwarm = True
-
-# Scenario for future climate: Currently, only ssp245 is available.
-ssp = "ssp245"
-
-# Number of bootstrap samples (if 'n_boots' = 0, bootstrapping will NOT be applied)
-n_boots = 0
-
 """
 ################################################################################
-Next, specify the start and end year of the baseline period.
-In addition, specify the 'attribution cases', that is, preind and target years and
-whether attribution results are calculated for future year and/or observations alone.
+Next, sepcify the years and if results are calculated for the baseline observations.
+In addition, define a time-period of 1 to 31 days.
 ################################################################################
 """
-
-# The first and last years of observations used in the calculation of probability distributions
-base1_year = 1901
-base2_year = 2024
-
-# ---- Attribution cases ----
 
 # Preindustrial climate year
 preind_year = 1900
@@ -86,17 +70,10 @@ preind_year = 1900
 target_year = 2025
 
 # Future climate year (Set 'future_year' = None, if you don't want attribution results for future climate)
-future_year = None
+future_year = 2050
 
 # Compute attribution results for observations
-use_obs = False
-
-"""
-################################################################################
-Finally, specify the time-period (e.g. any 1 to 31-day long period) to which
-attribution is done.
-################################################################################
-"""
+use_obs = True
 
 # Start Month (1-12)
 start_month = 7
@@ -110,14 +87,30 @@ end_month = 7
 # End day (1-31) (Comment this out, if attribution is done for single day)
 end_day = 25
 
-# Get the 'day_of_year' index (the center or the last day of the time-period) and the number of days in the time-period
+# Get the 'day_of_year' index (the center or the last day of the time-period) and the number of days 'n_days' in the time-period
 doy_index, n_days = functions.get_doy_index_and_ndays(start_month, start_day, end_month, end_day)
 
 """
-############################################################################
-Specify temperature range of the distribution, quantiles and directory paths
-############################################################################
+################################################################################
+Lastly, define probability for warmer/colder temperatures, emission scenario
+and number of bootstrapping samples.
+In addition, specify some auxiliary variables, such as, baseline period,
+temperature range of the distribution, quantiles and directory paths
+################################################################################
 """
+
+# Probability of warmer temperatures (colder if false)
+pwarm = True
+
+# Scenario for future climate: Currently, only ssp245 is available.
+ssp = "ssp245"
+
+# Number of bootstrap samples (if 'n_boots' = 0, bootstrapping will NOT be applied)
+n_boots = 0
+
+# The first and last years of observations used in the calculation of probability distributions
+base1_year = 1901
+base2_year = 2024
 
 # The observed temperature is within -50 ... +40 C
 valmin = -50.0
@@ -133,6 +126,7 @@ quantiles = np.arange(0.01, 1.00, 0.01)
 # Paths to directories for reading data and saving the output figures
 input_data_dir = "/home/aetoropa/tas_attribution_tool/input_data"
 path2figures = "/home/aetoropa/tas_attribution_tool/figures/"
+
 
 """
 ############################################################################
@@ -174,8 +168,10 @@ Read local daily temperature observations and calculate their
 ################################################################
 """
 
-# Read the observational data (SMHI: remember to provide station2_id if needed)
-daily_temp_obs_df, station_meta = functions.read_daily_obs(obs_source, frost_client_id, clim_var, station_id)
+# Read the observational data 
+# SMHI: remember to provide 'station2_id' if needed
+# FROST: remember to specify 'frost_client_id'
+daily_temp_obs_df, station_meta = functions.read_daily_obs(obs_source, clim_var, station_id)
 
 # Compute n-day running mean of the observations if needed
 if n_days > 1:
