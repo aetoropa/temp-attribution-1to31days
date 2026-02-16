@@ -1,20 +1,117 @@
-# temp-attribution-1to31days
-This repository contains shell and python scripts for:  
+# temp-attribution-1to31day
 
-1. Pre-processing data from the Coupled Climate Model Inter-comparison project (CMIP6). This includes:  
-    a) Extracting the simulated global mean temperature  
-    b) Calculating regression coefficients  
-  
-2. Estimating probability distributions of local daily mean, maximum and minimum temperatures or their 2 to 31-day moving averages in a changing climate. The program modifies local observational time-series by using (a) time-series of global mean temperature and (b) regression coefficients which estimate how the mean and variance of local temperature change in response to the global mean temperature change, resulting in a detrended time-series of "pseudo-observations". Probability distributions are estimated by applying quantile-regression to the time-series of pseudo-observations and fitting a 5-parameter logistic function to the daily values of quantiles 0.01,...,0.99 and Gumbel-distributions for the left and right tails. Finally, the program calculates how intense and probable the observed temperature would be in the pre-industrial and future climates.  
+This repository contains a Python program for estimating probability distributions of local daily mean, maximum and minimum temperatures or their 2 to 31-day moving averages in a changing climate. The program modifies local observational time-series by using (a) time-series of global mean temperature and (b) regression coefficients which estimate how the mean and variance of local temperature change in response to the global mean temperature change, resulting in a detrended time-series of "pseudo-observations". Probability distributions are estimated by applying quantile-regression to the time-series of pseudo-observations and fitting a 5-parameter logistic function to the daily values of quantiles 0.01,...,0.99 and Gumbel-distributions for the left and right tails. Finally, the program calculates how intense and probable the observed temperature would be in the pre-industrial and future climates. The methodoloy is documented in: ... 
 
-## Preparing the input data
+## Python requirements
 
-Preparing the input data (1) is accomplished by running three shell scrits. The first one these is called: ```calculate_Tglob_and_regression_coefficients.sh```, which calculates the model-specific global mean temperature change with respect to the year 2000 for the time period of 1901-2099 and the model-specific regression coefficients. You need to define the parameters ```hist_file``` (historical CMIP6-simulation file), ```proj_file``` (future CMIP6-simulation file) and ```n_days``` (the number of days in the time-period). Please note, that ```n_days``` needs to be an odd number between 1 and 31. This script needs to be applied separately to all combinations of CMIP6-models and number of days you wish to used. 
+You need the following libraries:
+* numpy 1.26.4
+* pandas 2.2.2
+* xarray 2023.6.0
+* scipy 1.13.1
+* statsmodels.api 0.14.2
+* requests 2.32.3
+* tqdm 4.66.5
+* fmiopendata 0.5.0
 
-### Example use
+## Run the main program
 
-If you wanted to calculate the regression coefficients for the ACCESS-CM2 model for 15-day periods, and the names of your```hist_file``` and ```proj_file``` were called "tas_day_ACCESS-CM2_historical_r1i1p1f1_gn_1850-2014.nc" and "tas_day_ACCESS-CM2_ssp245_r1i1p1f1_gn_2015-2100.nc", you would run the following:  
-```bash
-./calculate_Tglob_and_regression_coefficients.sh tas_day_ACCESS-CM2_historical_r1i1p1f1_gn_1850-2014.nc tas_day_ACCESS-CM2_ssp245_r1i1p1f1_gn_2015-2100.nc 15
+In the Python script ```estimate_distributions.py``` you need to define 3 sets of parameters, as described in the following 3 subsections. The first set defines the parameters that affect the observations which are used in the attribution. The second set defines the attribution cases (e.g. pre-industrial, present-day and future years) and the time-period. The third set defines how probability for warmer/colder temperatures is calculated, emission scenario and the number of bootstrapping samples. In addition to these parameters, you need to define paths for input data and saving the output figures.
 
-This will return...
+### Observation parameters
+
+The first observation parameter is:
+
+```obs_source```
+
+which defines the source of the observations. Currently, the script only works for temperature observations from Finnish Meteorological Institute (FMI), Swedish Meteorological and Hydrological Institute (SMHI) and MetNorway (FROST). If you use observations from FROST, you need to specify ```frost_client_id```, which is required for downloading observations from the FROST API (See: https://frost.met.no/authentication.html). If you do not have the FROST client id, just comment out this line.
+
+The second observation parameter is:  
+
+```station_id```
+
+which is the weather station's identification number (e.g. ```station_id``` = 101932 for Sodankylä, Finland; ```station_id``` = 161970 for Piteå, Sweden and ```station_id``` = SN18700 for Oslo, Norway). Currently, all FMI weather stations are available. However, the availability of SMHI and FROST-observations depends on the station and climate variable. The script works for the stations used in the paper cited above, but it may not work for every other SMHI or FROST station.\
+
+If you use SMHI-observations, you can also define the ```station2_id``` parameter if you wish to concatenate the observational time-series of stations ```station_id``` and ```station2_id```. This can be done if a newer automatic weather station has replaced an older weather station and is located nearby to it. For example, if you wish to use observations from the "Abisko" and the "Abisko Aut" stations, you would set ```station_id``` = 188800 and ```station2_id``` = 188790. If you don't intend on using observations from a secondary station, comment the line out.  
+
+The third observation parameter is:  
+
+```clim_var```  
+
+This variable defines the climate variable and follows the naming convention used in the CMIP6-data files (e.g. "tas" for mean temperature, "tasmax" for maximum temperature and "tasmin" for minimum temperature).  
+
+### Attribution cases and time-period
+
+This set of parameters defines the years and the time-period which are used in the attribution.
+The first parameter is:
+
+```preind_year```
+
+which defines the pre-industrial year. Typically, ```preind_year```= 1900 is used.  
+
+The second parameter is:
+
+```target_year```
+
+which defines the target year of the observation and is typically used to define the present-day climate.
+
+The third parameter is:
+
+```future_year```
+
+which defines the future year. Typically, ```future_year``` = 2050 is used. If you don't want to calculate the attribution results for the future year, set ```future_year``` = None.
+
+The fourth parameter is:
+
+```use_obs```
+
+which defines, whether the probability of warmer/colder temperatures and return times are calculated from observations over the baseline period and if these results are shown in the distribution plot.
+
+The fifth parameter is:
+
+```start_month```
+
+which specifies the start month in the period (1-12).
+
+The sixth parameter is:
+
+```start_day```
+
+which defines the day of the month (1-31).
+
+The seventh parameter is:
+
+```end_month```
+
+which defines the end month in the period (1-12). Bear in mind, that only 1 to 31-day long periods are allowed. If you intend to calculate attribution results for the date speficied by ```start_month``` and ```start_day``` variables, comment this line out.
+
+The eight parameter is:
+
+```end_day```
+
+which defines the end day in the period (1-31). Bear in mind, that only 1 to 31-day long periods are allowed. If you intend to calculate attribution results for the date speficied by ```start_month``` and ```start_day``` variables, comment this line out.
+
+
+### Probability, scenario and uncertainty estimate
+
+This set of parameters defines how probability is calculated, the emission scenario and number of boostrapping iterations.
+
+The first parameter you need to define is:  
+
+```pwarm```  
+
+which is the probability of warmer (True) or colder (False) temperatures. If ```pwarm``` = True, the probability of higher temperatures than the one that was observed is given in the distribution plot. In contrast, if ```pwarm``` = False, the probability of lower temperatures than the one that was observed is given in the distribution plot.  
+
+The second parameter you need to define is:  
+
+```ssp```
+
+which is the emission scenario for future climate (```ssp```= "ssp119", "ssp126", "ssp245" and "ssp585" are available).
+
+The thids parameter you need to dfine is:
+
+```n_boots```
+
+which defines the number of bootstrapping samples. If you set ```n_boots``` = 0, bootstrapping will not be applied.
+
+In addition to these parameters, you need to specify the first and last years of observations (```base1_year``` and ```base2_year```) used in estimating the probability distribution and the path to input_data and saving figures. Typically, ```base1_year```= 1901 and ```base2_year``` = ```target_year``` - 1.  
