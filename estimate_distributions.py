@@ -40,8 +40,8 @@ emission scenario and the number of bootstrap samples
 ################################################################################
 """
 
-# Frost client ID (You need this to download observations from FROST)
-# You can obtain a personal ID from: https://frost.met.no/authentication.html
+# Frost client ID (You need this to download MetNorway observations from Frost API)
+# You can obtain a personal ID from: https://frost.met.no/authentication.html (Comment this line out, if you don't have 'frost_client_id')
 frost_client_id = ""
 
 # Observations source (FMI, SMHI, FROST)
