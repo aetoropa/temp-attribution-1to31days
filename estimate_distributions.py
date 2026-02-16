@@ -72,7 +72,7 @@ target_year = 2025
 # Future climate year (Set 'future_year' = None, if you don't want attribution results for future climate)
 future_year = 2050
 
-# Compute attribution results for observations for the baseline period
+# Compute attribution results for observations for the baseline period (False, if observations are neglected)
 use_obs = True
 
 # Start Month (1-12)
