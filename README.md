@@ -1,6 +1,6 @@
 # temp-attribution-1to31day
 
-This repository contains a Python program for estimating probability distributions of local daily mean, maximum and minimum temperatures or their 2 to 31-day moving averages in a changing climate. The program modifies local observational time-series by using (a) time-series of global mean temperature and (b) regression coefficients which estimate how the mean and variance of local temperature change in response to the global mean temperature change, resulting in a detrended time-series of "pseudo-observations". Probability distributions are estimated by applying quantile-regression to the time-series of pseudo-observations and fitting a 5-parameter logistic function to the daily values of quantiles 0.01,...,0.99 and Gumbel-distributions for the left and right tails. Finally, the program calculates how intense and probable the observed temperature would be in the pre-industrial and future climates. The methodoloy is documented in: ... 
+This repository contains a Python program for estimating probability distributions of local daily mean, maximum and minimum temperatures or their 2 to 31-day moving averages in a changing climate. The program modifies local observational time-series by using (a) time-series of global mean temperature and (b) regression coefficients which estimate how the mean and variance of local temperature change in response to the global mean temperature change, resulting in a detrended time-series of "pseudo-observations". Probability distributions are estimated by applying quantile-regression to the time-series of pseudo-observations and fitting continuous probability distributions to the daily values of quantiles 0.01,...,0.99 and the left and right tails. Finally, the program calculates how intense and probable the observed temperature would be in the pre-industrial and future climates. The methodoloy is documented in: ... 
 
 ## Python requirements
 
@@ -155,9 +155,9 @@ Figure 4. Model-simulated probability ratios and intensity changes for the time-
 
 ## More information
 
-More information can be asked from
-Antti Toropainen
-Doctoral Researcher, University of Helsinki
+More information can be asked from\
+Antti Toropainen\
+Doctoral Researcher, University of Helsinki\
 antti.toropainen@helsinki.fi
 
 
