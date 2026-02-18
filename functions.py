@@ -367,8 +367,8 @@ def read_sim_temp_model_mean(input_data_dir: str, clim_var:str, ssp:str) -> pd.D
     try:
 
         # Create for paths to files
-        pattern_simulated_ts = os.path.join(input_data_dir, "simulated_temp_time_series", f'{clim_var}_Tglob_{ssp}_multi-model_mean_*.nc')
-        pattern_obs_ts = os.path.join(input_data_dir, "HadCRUT5_global_annual.nc")
+        pattern_simulated_ts = os.path.join(input_data_dir, "temp_time_series", f'{clim_var}_Tglob_{ssp}_multi-model_mean_*.nc')
+        pattern_obs_ts = os.path.join(input_data_dir, "temp_time_series", "HadCRUT5_global_annual.nc")
         
         # Search for matches
         matches_simulated_ts = glob.glob(pattern_simulated_ts)
@@ -452,8 +452,8 @@ def read_sim_temp_single_models(input_data_dir: str, clim_var:str, ssp:str) -> p
     try:
 
         # Create unix-style wild card patterns 
-        pattern_simulated_ts = os.path.join(input_data_dir, "simulated_temp_time_series", f"{clim_var}_Tglob_{ssp}_[0-9]*mod_*.nc")
-        pattern_obs_ts = os.path.join(input_data_dir, "HadCRUT5_global_annual.nc")
+        pattern_simulated_ts = os.path.join(input_data_dir, "temp_time_series", f"{clim_var}_Tglob_{ssp}_[0-9]*mod_*.nc")
+        pattern_obs_ts = os.path.join(input_data_dir, "temp_time_series", "HadCRUT5_global_annual.nc")
         
         # Search the patterns
         matches_simulated_ts = glob.glob(pattern_simulated_ts)
@@ -2256,8 +2256,8 @@ def read_qr_sm_obs(input_dir:str, obs_source:str, station_id:int, clim_var:str, 
         path2dir = Path(input_dir) / "qr_files" / "single_models" / ssp
 
         # Filenames
-        all_days_file = path2dir / f"{obs_source}_{station_id}_{clim_var}_qr_pseudo_obs_sm_{ssp}_{case}.nc"
-        nday_file = path2dir / f"{obs_source}_{station_id}_{clim_var}_qr_pseudo_obs_sm_{ssp}_{case}_{n_days}days.nc"
+        all_days_file = path2dir / f"{obs_source}_{station_id}_{clim_var}_qr_sm_{ssp}_{case}.nc"
+        nday_file = path2dir / f"{obs_source}_{station_id}_{clim_var}_qr_sm_{ssp}_{case}_{n_days}days.nc"
 
         # Pick the newest existing file
         path2file = newest_qr_file(all_days_file, nday_file)
@@ -2999,9 +2999,6 @@ def estimate_CDF_and_PDF_from_quantiles(quantiles:np.ndarray, T_quantiles:np.nda
     # Get Gumbel-distribution parameters for both tails
     gumbel_params = get_gumbel_parameters(CDF_logistic, PDF_logistic, T_range, merging_quantiles)
 
-    # Get gumbel parameters for the tail distributions
-    #gumbel_params = get_gumbel_parameters_from_quantiles(CDF_logistic, PDF_logistic, T_quantiles, T_range)
-
     # Compute the CDF and PDF of the Gumbel-function for the left and right tails
     CDF_gumbel_left, CDF_gumbel_right, PDF_gumbel_left, PDF_gumbel_right = fit_gumbel_functions(gumbel_params, quantiles, T_quantiles, T_range, transition_quantiles)
 
@@ -3671,8 +3668,8 @@ def print_attribution_results(
 
     # Limits for intensity changes
     if dI_intervals is not None:
-        t_preind_low = dI_intervals.get("t_preind_lower")
-        t_preind_upper = dI_intervals.get("t_preind_upper")
+        t_preind_lower = dI_intervals["t_preind_lower"]
+        t_preind_upper = dI_intervals["t_preind_upper"]
         tdiff_lower = dI_intervals["tdiff_lower"]
         tdiff_upper = dI_intervals["tdiff_upper"]
 
@@ -3693,6 +3690,8 @@ def print_attribution_results(
     print(f"Climate variable: {var_string}")
     print(f"Time-period: {time_period}")
     print("\nAnnual probabilities:")
+    
+    # Print probabilityies for pre-industrial and target years
     print(f"{preind_year}: {format_var("prob", pr_preind, pr_preind_low, pr_preind_up)}")
     print(f"{target_year}: {format_var("prob", pr_target, pr_target_low, pr_target_up)}")
     
@@ -3701,9 +3700,10 @@ def print_attribution_results(
         
         print(f"{future_year}: {format_var("prob", probabilities["future"], probabilities.get("future_low"), probabilities.get("future_up"))}")
         
+    # Print Annual temperatures
     print("\nAnnual temperatures:")
     if dI_intervals is not None:
-        print(f"{preind_year}: {format_var("temp", t_preind, t_preind_low, t_preind_upper)}")
+        print(f"{preind_year}: {format_var("temp", t_preind, t_preind_lower, t_preind_upper)}")
     else:
         print(f"{preind_year}: {format_var("temp", t_preind, None, None)}")
 
@@ -3712,7 +3712,7 @@ def print_attribution_results(
     # Print temperatures for future year only if it's provided
     if future_year and "t_future" in percentile_temps:
         if dI_intervals is not None:
-            print(f"{future_year}: {format_var("temp", percentile_temps["t_future"], dI_intervals.get("t_future_lower"), dI_intervals.get("t_future_upper"))}")
+            print(f"{future_year}: {format_var("temp", percentile_temps["t_future"], dI_intervals["t_future_lower"], dI_intervals["t_future_upper"])}")
         else:
             print(f"{future_year}: {format_var("temp", percentile_temps["t_future"], None, None)}")
 
@@ -3815,7 +3815,7 @@ def plot_time_series(path2figures:str,
     ax.axhline(y=obs_temp_plot.loc[target_year], linestyle='--')
 
     # Adjust axes, legend, etc.
-    ax.set_title(f"{place.replace('_', ' ').title()}, {time_period}", fontsize=15, pad=25)
+    #ax.set_title(f"{place.replace('_', ' ').title()}, {time_period}", fontsize=15, pad=25)
     ax.set_ylabel(ylabel_string,fontsize=14)
     ax.set_xlabel("Year",fontsize=14)
     ax.set_xlim(start_year-1, target_year+1)
@@ -3825,7 +3825,7 @@ def plot_time_series(path2figures:str,
 
     # Save the figure
     figure_name = f"time_series_plot_{clim_var}_{place}_{figname_date_string}.png"
-    plt.savefig(os.path.join(path2figures,clim_var,figure_name),dpi=300,bbox_inches="tight")
+    plt.savefig(os.path.join(path2figures,figure_name),dpi=300,bbox_inches="tight")
 
 
 def plot_observations(
@@ -4018,8 +4018,8 @@ def plot_observations(
     
     # ---- Save the figure ----
     figure_name = f"observation_plot_{clim_var}_{place}_{figname_date_string}.png"
-    save_path = os.path.join(path2figures, clim_var, figure_name)
-    #plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    save_path = os.path.join(path2figures, figure_name)
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
 
 
 def plot_distributions(
@@ -4194,9 +4194,7 @@ def plot_distributions(
     ax1.legend(loc="upper right", frameon=False, ncol=3, bbox_to_anchor=(0.92, 1.1))
     ax2.legend(loc="upper right", frameon=False, ncol=3, bbox_to_anchor=(1, 1.1))
 
-    # Intensity change
-    #dI_text = "Change\\ in\\ intensity"
-
+   
     # -- Get text variables for printing --
     probabilities_preind = format_prob(probabilities, "preind")
     probabilities_target = format_prob(probabilities, "target")
@@ -4311,8 +4309,8 @@ def plot_distributions(
     ax1.annotate(rf'$\gamma$={skewness_val:.2f}', (0.03, 0.78), xycoords="axes fraction")
     ax1.annotate(rf'$\kappa$={kurtosis_val:.2f}', (0.03, 0.74), xycoords="axes fraction")
 
-    ax1.annotate("a", (0.03, 0.95), xycoords="axes fraction", fontweight="bold", fontsize=18)
-    ax2.annotate("b", (0.03, 0.95), xycoords="axes fraction", fontweight="bold", fontsize=18)
+    ax1.annotate("(a)", (0.0, 1.02), xycoords="axes fraction", fontsize=18)
+    ax2.annotate("(b)", (0.0, 1.02), xycoords="axes fraction", fontsize=18)
 
     # Save the figure
     figure_name = f"distribution_plot_{obs_source}_{station_meta["station_id"]}_{fig_name_date_string}.png"
@@ -4497,7 +4495,7 @@ def plot_model_statistics(
                     whis=(5,95),
                     widths=0.7,
                     boxprops=boxprops)
-
+    
     # Adjust axes
     ax.set_xlim(0, np.max(deltaI)+1)
     ax.set_xlabel(r'Change in intensity [$^{\circ}$C]')

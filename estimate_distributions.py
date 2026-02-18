@@ -35,31 +35,30 @@ import functions
 
 """
 ################################################################################
-First, give the input parameters: obs_source, station_id, climate variable,
-emission scenario and the number of bootstrap samples
+First, define the parameters which govern what observations are used. 
 ################################################################################
 """
 
 # Frost client ID (You need this to download MetNorway observations from Frost API)
 # You can obtain a personal ID from: https://frost.met.no/authentication.html (Comment this line out, if you don't have 'frost_client_id')
-frost_client_id = ""
+frost_client_id = "9a43639e-6f86-4a9e-b664-a2fbddf57b81"
 
 # Observations source (FMI, SMHI, FROST)
 obs_source = "FMI"
 
 # Station ID (101932 = Sodankylä, Tähtelä; 100971 = Helsinki, Kaisaniemi)
-station_id = "101932"
+station_id = 101932
 
 # Station2 ID (only some SMHI stations)
-#station2_id = "134110"
+station2_id = None
 
 # Climate variable (tas, tasmax, tasmin)
 clim_var = "tasmax"
 
 """
 ################################################################################
-Next, sepcify the years and if results are calculated for the baseline observations.
-In addition, define a time-period of 1 to 31 days.
+Next, sepcify the years, the time-period (1 to 31 days) and if results are 
+calculated for observations over the baseline period.
 ################################################################################
 """
 
@@ -87,15 +86,12 @@ end_month = 7
 # End day (1-31) (Comment this out, if attribution is done for single day)
 end_day = 25
 
-# Get the 'day_of_year' index (the center or the last day of the time-period) and the number of days 'n_days' in the time-period
-doy_index, n_days = functions.get_doy_index_and_ndays(start_month, start_day, end_month, end_day)
 
 """
 ################################################################################
 Lastly, define probability for warmer/colder temperatures, emission scenario
-and number of bootstrapping samples.
-In addition, specify some auxiliary variables, such as, baseline period,
-temperature range of the distribution, quantiles and directory paths
+and the number of bootstrapping samples.
+You may also define the baseline period and directory paths.
 ################################################################################
 """
 
@@ -106,7 +102,7 @@ pwarm = True
 ssp = "ssp245"
 
 # Number of bootstrap samples (if 'n_boots' = 0, bootstrapping will NOT be applied)
-n_boots = 0
+n_boots = 20
 
 # The first and last years of observations used in the calculation of probability distributions
 base1_year = 1901
@@ -124,12 +120,39 @@ T_range = np.linspace(valmin, valmax, nbins)
 quantiles = np.arange(0.01, 1.00, 0.01)
 
 # Paths to directories for reading data and saving the output figures
-input_data_dir = "/home/aetoropa/tas_attribution_tool/input_data"
-path2figures = "/home/aetoropa/tas_attribution_tool/figures/"
+input_data_dir = "/home/aetoropa/temp-attribution-1to31days/input_data"
+path2figures = "/home/aetoropa/temp-attribution-1to31days/figures/"
 
+"""
+################################################################
+Download local daily temperature observations and calculate their
+2 to 31-day moving averages (if needed). 
+################################################################
+"""
+
+# Get the following variables specific to the time-period:
+# 'doy_index' = day-of-year (the center or the last day) 
+# 'n_days' = the number of days
+doy_index, n_days = functions.get_doy_index_and_ndays(start_month, start_day, end_month, end_day)
+
+# Read the observational data
+# SMHI: remember to provide 'station2_id' if needed
+# FROST: remember to specify 'frost_client_id'
+daily_temp_obs_df, station_meta = functions.read_daily_obs(obs_source, clim_var, station_id, station2_id, frost_client_id=frost_client_id)
+
+# Compute n-day running mean of the observations if needed
+if n_days > 1:
+    obs_df = functions.compute_running_mean(daily_temp_obs_df, n_days)
+else:
+    obs_df = daily_temp_obs_df
+
+# Check the validity of observations before moving forward
+functions.check_obs_validity(obs_df, doy_index, n_days, target_year)
 
 """
 ############################################################################
+DO NOT ADJUST THE CODE BELOW THIS...
+Get the day-of-year index and the number of days in the time-period 
 Construct dictionaries for the attribution cases and some input parameters
 ############################################################################
 """
@@ -161,26 +184,6 @@ config_vars = {
     "quantiles": quantiles
     }
 
-"""
-################################################################
-Read local daily temperature observations and calculate their
-2 to 31-day moving averages (if needed). 
-################################################################
-"""
-
-# Read the observational data 
-# SMHI: remember to provide 'station2_id' if needed
-# FROST: remember to specify 'frost_client_id'
-daily_temp_obs_df, station_meta = functions.read_daily_obs(obs_source, clim_var, station_id)
-
-# Compute n-day running mean of the observations if needed
-if n_days > 1:
-    obs_df = functions.compute_running_mean(daily_temp_obs_df, n_days)
-else:
-    obs_df = daily_temp_obs_df
-
-# Check the validity of observations
-functions.check_obs_validity(obs_df, doy_index, n_days, target_year)
 
 """
 ################################################################
@@ -203,13 +206,15 @@ coeffs_sm_ds = functions.read_coeffs_single_models(input_data_dir, clim_var, ssp
 Compute model-mean and single-model pseudo-observations for all attribution cases.
 For the model-mean case, QR is applied to all cases if it hasn't been applied
 previously.
-For the single-mode case, QR is applied (or pre-computed results are used) if
-uncertainty estimate is calculated by bootstrapping ('n_boots > 0').
+For the single-mode case, QR is applied (or pre-computed results are used) only if
+uncertainty estimated by bootstrapping ('n_boots > 0').
 ################################################################################
 """
 
-# Compute model-mean pseudo-observations for the selected time-period and and get OR compute the corresponding quantiles
+# Compute model-mean pseudo-observations for the selected time-period and apply QR to them or used previously computed results
 pseudo_obs_mm_dict, qr_obs_mm_dict = functions.get_pseudo_obs_and_qr_mm(attribution_cases, config_vars, input_data_dir, obs_df, coeffs_mm_ds, glob_temp_mm_df)
+
+# Compute single-model pseudo-observations for the selected time-period and apply QR to them or use previously computed results
 pseudo_obs_sm_dict, qr_sm_dict = functions.get_pseudo_obs_and_qr_sm(attribution_cases, config_vars, input_data_dir, obs_df, coeffs_sm_ds, glob_temp_sm_df, n_boots)
 
 """
@@ -259,10 +264,10 @@ prob = CDF_mm_dict["target"][target_index]
 probabilities = functions.calculate_probabilities(pwarm, target_index, CDF_mm_dict, bootstrap_3Darr_dict)
 
 # Get the temperature corresponding to the percentile in today's climate in the pre-industrial
-# and optioanlly future and observed climates
+# and optionally future and observed climates
 percentile_temps = functions.get_percentile_temp_in_climates(prob, T_range, CDF_mm_dict)
 
-# Calculate intensity change intervals if bootstrapping was appplied
+# Calculate intensity change intervals, if bootstrapping was appplied
 if bootstrap_3Darr_dict is not None:
     dI_intervals = functions.calculate_dI_intervals(target_index, T_range, bootstrap_3Darr_dict)
 else:
@@ -290,8 +295,7 @@ functions.plot_observations(path2figures, clim_var, station_meta["name"], target
 # Plot distributions
 functions.plot_distributions(path2figures, attribution_cases, obs_source, station_meta, ssp, T_range, doy_index, n_days, pwarm, target_value, pseudo_obs_mm_dict["target"], PDF_mm_dict, probabilities, percentile_temps, dI_intervals)
 
-# Plot model statistics onyl if bootstrapping is applied
+# Plot model statistics only if bootstrapping is applied
 if n_boots > 0:
     model_names = qr_sm_dict["preind"].columns.tolist()
-    functions.plot_model_statistics(path2figures, obs_source, station_meta, doy_index, n_days, target_year, model_names, n_boots, target_index, target_value, pwarm, bootstrap_3Darr_dict,\
-                                    probabilities, percentile_temps, dI_intervals)
+    functions.plot_model_statistics(path2figures, obs_source, station_meta, doy_index, n_days, model_names, n_boots, target_index, target_value, pwarm, bootstrap_3Darr_dict, probabilities, percentile_temps, dI_intervals)
