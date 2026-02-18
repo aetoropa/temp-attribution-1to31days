@@ -120,26 +120,26 @@ In addition to these parameters, you need to specify the first and last years of
 
 The program prints the annual probabilities and temperatures for ```preind_year```, ```target_year``` and ```future_year``` together with probability ratio and intensity change. The output looks as follows for the time-period of 12-25 July, 2025 in Sodankylä, Finland:
 
-Attribution results for FMI station 101932 (Sodankylä Tähtelä):
+Attribution results for FMI station 101932 (Sodankylä Tähtelä):  
 
-Location: (67.37 °N, 26.63 °E)
-Climate variable: 14-day mean of daily maximum temperature
-Time-period: 12 – 25 July
+Location: (67.37 °N, 26.63 °E)  
+Climate variable: 14-day mean of daily maximum temperature  
+Time-period: 12 – 25 July  
 
-Annual probabilities:
-1900: 0.38% (0.04% - 1.11%)
-2025: 1.80% (0.36% - 5.13%)
-2050: 3.90% (0.59% - 11.92%)
+Annual probabilities:  
+1900: 0.38% (0.04% - 1.11%)  
+2025: 1.80% (0.36% - 5.13%)  
+2050: 3.90% (0.59% - 11.92%)  
 
-Annual temperatures:
-1900: 25.8°C (24.7°C - 27.7°C)
-2025: 28.0°C
-2050: 29.0°C (28.1°C - 30.2°C)
+Annual temperatures:  
+1900: 25.8°C (24.7°C - 27.7°C)  
+2025: 28.0°C  
+2050: 29.0°C (28.1°C - 30.2°C)  
 
-Probability ratio: 4.8 (1.2 - 28.1)
-Change in intensity: (2.2°C) (0.3-3.3)
+Probability ratio: 4.8 (1.2 - 28.1)  
+Change in intensity: (2.2°C) (0.3-3.3)  
 
-In addition, four plots are produced:
+In addition, four plots are produced:  
 
 <img width="2621" height="1444" alt="time_series_plot_tasmax_Sodankylä Tähtelä_0712-0725" src="https://github.com/user-attachments/assets/65538269-e6d3-4383-8c1a-de9084123922" />
 Figure 1. Time-series plot of the 14-day moving averge of daily maximum temperature for the period of 12-25 July. Black line shows the actual observation, blue dots show the corresponding multi-model mean pseudo-observations, representing present-day climate. The red error bars show the 5th and 95th percentiles of the ensemble of 31 model-specific pseudo-observations. The blue dashed line marks the observation (28.0 °C) of year 2025.
