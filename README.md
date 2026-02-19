@@ -1,6 +1,6 @@
 # temp-attribution-1to31day
 
-This repository contains a Python program for estimating probability distributions of local daily mean, maximum and minimum temperatures or their 2 to 31-day moving averages in a changing climate. The program modifies local observational time-series by using (a) time-series of global mean temperature and (b) regression coefficients which estimate how the mean and variance of local temperature change in response to the global mean temperature change, resulting in a detrended time-series of "pseudo-observations". Probability distributions are estimated by applying quantile-regression to the time-series of pseudo-observations and fitting continuous probability distributions to the daily values of quantiles 0.01,...,0.99 and the left and right tails. Finally, the program calculates how intense and probable the observed temperature would be in the pre-industrial and future climates. The methodoloy is documented in: ... 
+This repository contains a Python program for estimating probability distributions of local daily mean, maximum and minimum temperatures or their 2 to 31-day moving averages in a changing climate. The program modifies local observational time-series by using (a) time-series of global mean temperature and (b) regression coefficients which estimate how the mean and variance of local temperature change in response to the global mean temperature change, resulting in a detrended time-series of "pseudo-observations". Probability distributions are estimated by applying quantile-regression to the time-series of pseudo-observations and fitting continuous probability distributions to the daily values of quantiles 0.01,...,0.99. Finally, the program calculates how intense and probable the observed temperature would be in the pre-industrial and future climates. The methodoloy is documented in: ... 
 
 ## Python requirements
 
@@ -16,7 +16,7 @@ You need the following libraries:
 
 ## Run the main program
 
-In the Python script ```estimate_distributions.py``` you need to define 3 sets of parameters, as described in the following 3 subsections. The first set defines the parameters that affect the observations which are used in the attribution. The second set defines the attribution cases (e.g. pre-industrial, present-day and future years) and the time-period. The third set defines how probability for warmer/colder temperatures is calculated, emission scenario and the number of bootstrapping samples. In addition to these parameters, you need to define paths for input data and saving the output figures.
+In the Python script ```estimate_distributions.py``` you need to define 3 sets of parameters, as described in the following 3 subsections. The first set defines the parameters that specify the observations which are used in the attribution. The second set defines the attribution cases (e.g. pre-industrial, present-day and future years) and the time-period. The third set defines how probability for warmer/colder temperatures is calculated, emission scenario and the number of bootstrapping samples. In addition to these parameters, you need to define paths for input data and saving the output figures.
 
 ### Observation parameters
 
@@ -63,15 +63,15 @@ which defines the future year. Typically, ```future_year``` = 2050 is used. If y
 
 The fourth parameter is:
 
-```use_obs```
+```show_obs_distr```
 
-which defines, whether the probability of warmer/colder temperatures and return times are calculated from observations over the baseline period and if these results are shown in the distribution plot.
+which defines, whether the probability of warmer/colder temperatures and return times are also calculated from observations over the baseline period and if these results are shown in the distribution plot.
 
 The fifth parameter is:
 
 ```start_month```
 
-which specifies the start month in the period (1-12).
+which specifies the start month (1-12) for the 1-to-31-day period for which the probability distributions are calculated.
 
 The sixth parameter is:
 
@@ -83,13 +83,13 @@ The seventh parameter is:
 
 ```end_month```
 
-which defines the end month in the period (1-12). Bear in mind, that only 1 to 31-day long periods are allowed. If you intend to calculate attribution results for the date speficied by ```start_month``` and ```start_day``` variables, comment this line out.
+which defines the end month in the period (1-12). If you intend to calculate attribution results for the date speficied by ```start_month``` and ```start_day``` variables, comment this line out.
 
 The eight parameter is:
 
 ```end_day```
 
-which defines the end day in the period (1-31). Bear in mind, that only 1 to 31-day long periods are allowed. If you intend to calculate attribution results for the date speficied by ```start_month``` and ```start_day``` variables, comment this line out.
+which defines the end day in the period (1-31). If you intend to calculate attribution results for the date speficied by ```start_month``` and ```start_day``` variables, comment this line out.
 
 
 ### Probability, scenario and uncertainty estimate
@@ -100,7 +100,7 @@ The first parameter you need to define is:
 
 ```pwarm```  
 
-which is the probability of warmer (True) or colder (False) temperatures. If ```pwarm``` = True, the probability of higher temperatures than the one that was observed is given in the distribution plot. In contrast, if ```pwarm``` = False, the probability of lower temperatures than the one that was observed is given in the distribution plot.  
+If ```pwarm``` = True, the probability of higher temperatures than the one that was observed is given in the distribution plot. In contrast, if ```pwarm``` = False, the probability of lower temperatures than the one that was observed is given in the distribution plot.  
 
 The second parameter you need to define is:  
 
@@ -145,13 +145,13 @@ In addition, four plots are produced:
 Figure 1. Time-series plot of the 14-day moving averge of daily maximum temperature for the period of 12-25 July. Black line shows the actual observation, blue dots show the corresponding multi-model mean pseudo-observations, representing present-day climate. The red error bars show the 5th and 95th percentiles of the ensemble of 31 model-specific pseudo-observations. The blue dashed line marks the observation (28.0 °C) of year 2025.
 
 <img width="3295" height="1747" alt="observation_plot_tasmax_Sodankylä Tähtelä_0712-0725" src="https://github.com/user-attachments/assets/701a7a50-1b6f-410d-963a-2b99ecc22bd3" />
-Figure 2. 14-day moving avearge daily maximum temperature observations in Sodankylä, Finland from 1908 to 2025 (blue dots) and their quantile functions for the median (yellow) and selected low (green and blue) and high (orange and red). The observation corresponding to the heatwave of summer 2025 is highlighted with a red dot. The red shaded area higlights the time-period of the observation (12-25 July).
+Figure 2. 14-day moving avearge daily maximum temperature observations in Sodankylä, Finland from 1908 to 2025 (blue dots) and their quantile functions for the median (yellow) and selected low (green and blue) and high (orange and red) quantiles. The observation corresponding to the heatwave of summer 2025 is highlighted with a red dot. The red shaded area higlights the time-period of the observation (12-25 July).
 
 <img width="5434" height="1965" alt="distribution_plot_FMI_101932_0712-0725" src="https://github.com/user-attachments/assets/d75f804f-f98d-4005-83fe-e0360faff60d" />
 Figure 3. a) The frequency distribution of pseudo-observations representing the 14-day moving average of daily maximum temperature observations in the present-day climate (2025) in Sodankylä, Finland (blue bars) and the corresponding continuous probability distribution function (blue line). In the upper left corner, the values of the four moments are annotated: mean (μ), variance (σ²), skewness (γ) and kurtosis (κ). b) The continuous probability distributions of pseudo-observations for climates in years 1900 (green line), 2025 (blue line) and 2050 (red line). Black vertical line marks the observation of the year 2025. The text panel shows the probabilities of observing higher temperatures than the observed temperature of 28.0 °C, return periods and intensities.
 
 <img width="2446" height="2985" alt="model_statistics_FMI_101932_0712-0725" src="https://github.com/user-attachments/assets/947ea556-77f8-487c-86e0-e4f7445dfd0e" />
-Figure 4. Model-simulated probability ratios and intensity changes for the time-period of 12-25 July, 2025 in Sodankylä, Finland. The uncertainty in the probability ratio values is entirely due to internal variability as only one realization per model is used. The boxes show the first and third quartiles and whiskers show the 5-95th percentiles of the realization. MMM at the bottom row refers to multi-model mean estimate.
+Figure 4. Model-simulated probability ratios and intensity changes for the time-period of 12-25 July, 2025 in Sodankylä, Finland. The uncertainty in the probability ratio values results from bootstrap sampling of observations. No uncertainty estimates are provided for the intensity changes in the individual models because only one realization per model was used to calculate the regression coefficients. The boxes show the first and third quartiles and whiskers show the 5-95th percentiles of the realization. MMM at the bottom row refers to multi-model mean estimate.
 
 ## More information
 
