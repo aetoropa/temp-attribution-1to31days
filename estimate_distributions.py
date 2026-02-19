@@ -57,8 +57,9 @@ clim_var = "tasmax"
 
 """
 ################################################################################
-Next, sepcify the years, the time-period (1 to 31 days) and if results are 
-calculated for observations over the baseline period.
+Next, sepcify the years, the time-period (1 to 31 days) for which probability
+distributions are estimated, and if results are also calculated for the original 
+baseline observations.
 ################################################################################
 """
 
@@ -68,16 +69,16 @@ preind_year = 1900
 # Target climate year
 target_year = 2025
 
-# Future climate year (Set 'future_year' = None, if you don't want attribution results for future climate)
+# Future climate year (Set 'future_year' = None, if you don't want to calculate results for future climate)
 future_year = 2050
 
-# Compute attribution results for observations for the baseline period (False, if observations are neglected)
-use_obs = True
+# Specifies if results are also directly calculated for the original baseline observations (False, if observations are neglected)
+show_obs_dist = True
 
-# Start Month (1-12)
+# Start month (1-12) of the time-period for which probability distribution is estimated
 start_month = 7
 
-# Start day (1-31)
+# Start day (1-31) of the time-period for which probability distribution is estimated
 start_day = 12
 
 # End month (1-12) (Comment this out, if attribution is done for single day)
@@ -89,16 +90,20 @@ end_day = 25
 
 """
 ################################################################################
-Lastly, define probability for warmer/colder temperatures, emission scenario
-and the number of bootstrapping samples.
-You may also define the baseline period and directory paths.
+Lasly, define directory paths, choose whether probability is calculated for warmer
+or colder temperatures, select the emission scenario and define the number of
+bootstrapping samples. You may also define the baseline period.
 ################################################################################
 """
+
+# Paths to directories for reading data and saving the output figures
+input_data_dir = "/home/aetoropa/temp-attribution-1to31days/input_data"
+path2figures = "/home/aetoropa/temp-attribution-1to31days/figures/"
 
 # Probability of warmer temperatures (colder if false)
 pwarm = True
 
-# Scenario for future climate: Currently, only ssp245 is available.
+# Scenario for future climate
 ssp = "ssp245"
 
 # Number of bootstrap samples (if 'n_boots' = 0, bootstrapping will NOT be applied)
@@ -119,9 +124,6 @@ T_range = np.linspace(valmin, valmax, nbins)
 # Quantiles 0.01...0.99 for quantile regression (QR)
 quantiles = np.arange(0.01, 1.00, 0.01)
 
-# Paths to directories for reading data and saving the output figures
-input_data_dir = "/home/aetoropa/temp-attribution-1to31days/input_data"
-path2figures = "/home/aetoropa/temp-attribution-1to31days/figures/"
 
 """
 ################################################################
@@ -152,7 +154,6 @@ functions.check_obs_validity(obs_df, doy_index, n_days, target_year)
 """
 ############################################################################
 DO NOT ADJUST THE CODE BELOW THIS...
-Get the day-of-year index and the number of days in the time-period 
 Construct dictionaries for the attribution cases and some input parameters
 ############################################################################
 """
@@ -167,8 +168,8 @@ attribution_cases = {
 if future_year is not None:
     attribution_cases["future"] = future_year
 
-# Observations are added, if 'use_obs' is not None
-if use_obs is not None:
+# Observations are added, if 'show_obs_dist' is not False
+if show_obs_dist == True:
     attribution_cases["obs"] = "obs"
 
 # Save initialization variables to a dictionary, so it's easier to pass them as arguments to functions
@@ -207,7 +208,7 @@ Compute model-mean and single-model pseudo-observations for all attribution case
 For the model-mean case, QR is applied to all cases if it hasn't been applied
 previously.
 For the single-mode case, QR is applied (or pre-computed results are used) only if
-uncertainty estimated by bootstrapping ('n_boots > 0').
+uncertainty is estimated by bootstrapping ('n_boots > 0').
 ################################################################################
 """
 
