@@ -213,10 +213,10 @@ uncertainty is estimated by bootstrapping ('n_boots > 0').
 ################################################################################
 """
 
-# Compute model-mean pseudo-observations for the selected time-period and apply QR to them or used previously computed results
+# Compute model-mean pseudo-observations for the selected time-period and apply QR to them or use previously computed values of quantiles
 pseudo_obs_mm_dict, qr_obs_mm_dict = functions.get_pseudo_obs_and_qr_mm(attribution_cases, config_vars, input_data_dir, obs_df, coeffs_mm_ds, glob_temp_mm_df, n_harmonics=6)
 
-# Compute single-model pseudo-observations for the selected time-period and apply QR to them or use previously computed results
+# Compute single-model pseudo-observations for the selected time-period and apply QR to them or use previously computed values of quantiles
 pseudo_obs_sm_dict, qr_sm_dict = functions.get_pseudo_obs_and_qr_sm(attribution_cases, config_vars, input_data_dir, obs_df, coeffs_sm_ds, glob_temp_sm_df, n_boots, n_harmonics=6)
 
 """
@@ -226,8 +226,8 @@ selected time-period in all attribution cases.
 ################################################################
 """
 
-# Fit continuous probability distributions to the quantiles in the pre-industrial and present-day climates
-# and optionally in the future and the observed climate
+# Fit continuous probability distributions to the quantiles in the pre-industrial, present-day and future climates
+# and to the quantiles from the original baseline observations
 CDF_mm_dict, PDF_mm_dict = functions.get_mm_distributions(qr_obs_mm_dict, quantiles, T_range, doy_index)
 
 """
@@ -265,8 +265,8 @@ prob = CDF_mm_dict["target"][target_index]
 # Calculate probabilites in warmer/colder climates
 probabilities = functions.calculate_probabilities(pwarm, target_index, CDF_mm_dict, bootstrap_3Darr_dict)
 
-# Get the temperature corresponding to the percentile in today's climate in the pre-industrial
-# and optionally future and observed climates
+# Get the temperature corresponding to the percentile in today's climate in the pre-industrial and future climates
+# and the original baseline observations
 percentile_temps = functions.get_percentile_temp_in_climates(prob, T_range, CDF_mm_dict)
 
 # Calculate intensity change intervals, if bootstrapping was appplied
