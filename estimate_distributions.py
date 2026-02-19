@@ -188,15 +188,16 @@ config_vars = {
 
 """
 ################################################################
-Read observed and simulated global temperatures, merge them and
-smooth with 11-year moving average. In addition, read the
+Read the observed and simulated global temperatures, merge them
+and smooth them with an 11-year moving average. In addition, read the
 regression coefficients for mean and variability.
 ################################################################
 """
 
 # Read observed global mean temp and merge it with the simulated temperature for the model mean (mm) and single model (sm) cases
-glob_temp_mm_df = functions.read_sim_temp_model_mean(input_data_dir, clim_var, ssp)
-glob_temp_sm_df = functions.read_sim_temp_single_models(input_data_dir, clim_var, ssp)
+# 'window' has to be an odd number
+glob_temp_mm_df = functions.read_sim_temp_model_mean(input_data_dir, clim_var, ssp, window=11)
+glob_temp_sm_df = functions.read_sim_temp_single_models(input_data_dir, clim_var, ssp, window=11)
 
 # Read model mean (mm) and single model (sm) regression coefficients
 coeffs_mm_ds = functions.read_coeffs_model_mean(input_data_dir, clim_var, ssp, station_meta["latitude"], station_meta["longitude"], n_days)
@@ -213,10 +214,10 @@ uncertainty is estimated by bootstrapping ('n_boots > 0').
 """
 
 # Compute model-mean pseudo-observations for the selected time-period and apply QR to them or used previously computed results
-pseudo_obs_mm_dict, qr_obs_mm_dict = functions.get_pseudo_obs_and_qr_mm(attribution_cases, config_vars, input_data_dir, obs_df, coeffs_mm_ds, glob_temp_mm_df)
+pseudo_obs_mm_dict, qr_obs_mm_dict = functions.get_pseudo_obs_and_qr_mm(attribution_cases, config_vars, input_data_dir, obs_df, coeffs_mm_ds, glob_temp_mm_df, n_harmonics=6)
 
 # Compute single-model pseudo-observations for the selected time-period and apply QR to them or use previously computed results
-pseudo_obs_sm_dict, qr_sm_dict = functions.get_pseudo_obs_and_qr_sm(attribution_cases, config_vars, input_data_dir, obs_df, coeffs_sm_ds, glob_temp_sm_df, n_boots)
+pseudo_obs_sm_dict, qr_sm_dict = functions.get_pseudo_obs_and_qr_sm(attribution_cases, config_vars, input_data_dir, obs_df, coeffs_sm_ds, glob_temp_sm_df, n_boots, n_harmonics=6)
 
 """
 ################################################################

@@ -345,7 +345,7 @@ def read_coeffs_single_models(input_data_dir: str, clim_var:str, ssp:str, obs_la
 
 
 # Read the simulated temperature for multi-model mean
-def read_sim_temp_model_mean(input_data_dir: str, clim_var:str, ssp:str) -> pd.DataFrame:
+def read_sim_temp_model_mean(input_data_dir: str, clim_var:str, ssp:str, window:int) -> pd.DataFrame:
 
     """
     Reads simulated global temperature data for multi-model mean and combines it with the historically observed global mean temperature. The combined
@@ -358,6 +358,8 @@ def read_sim_temp_model_mean(input_data_dir: str, clim_var:str, ssp:str) -> pd.D
             Climate variable (tas, tasmax, tasmin).
         ssp: str
             The Shared Socioeconomic Pathway emission scenario (e.g., "ssp245").
+        window: int
+            Number of years in the moving average (11 by default). Must be an odd number.
         
     Returns:
         sm_df: pd.DataFrame 
@@ -397,8 +399,8 @@ def read_sim_temp_model_mean(input_data_dir: str, clim_var:str, ssp:str) -> pd.D
         tglob_sim_temp_ds = tglob_sim_ds.dt.squeeze().rename('t')
         tglob_sim_temp_ds['time'] = tglob_sim_ds.time.dt.year
         
-        # Smooth the simulated temperatures with 11-year running mean
-        tglob_sim_smooth_ds = tglob_sim_temp_ds.rolling(time=11, center=True, min_periods=1).mean()
+        # Smooth the simulated temperatures with an n-year running mean
+        tglob_sim_smooth_ds = tglob_sim_temp_ds.rolling(time=window, center=True, min_periods=1).mean()
         
         # Open the observed global mean temperature file
         glob_obs_temp_ds = xr.open_dataset(path2obs_ts)
@@ -407,11 +409,11 @@ def read_sim_temp_model_mean(input_data_dir: str, clim_var:str, ssp:str) -> pd.D
         glob_obs_temp = glob_obs_temp_ds['tas_mean'].squeeze().sel(time=slice('1850-01-01','2024-12-31'))
         glob_obs_temp['time'] = glob_obs_temp.time.dt.year
 
-        # Compute 11-year moving average of the global mean temperature
-        glob_obs_smooth_ds = glob_obs_temp.rolling(time=11, center=True, min_periods=1).mean()
+        # Compute an n-year moving average of the global mean temperature
+        glob_obs_smooth_ds = glob_obs_temp.rolling(time=window, center=True, min_periods=1).mean()
         
-        # Find the last valid year. The last year is the last index minus 5 as that's half of 11
-        last_valid_idx = glob_obs_smooth_ds.time.values[-1] - 5
+        # Find the last valid year. The last year is the last index minus years//2
+        last_valid_idx = glob_obs_smooth_ds.time.values[-1] - (window // 2)
             
         # Merge observed and simulated global temperatures
         diff = glob_obs_smooth_ds.sel(time=last_valid_idx) - tglob_sim_smooth_ds.sel(time=last_valid_idx)        
@@ -430,7 +432,7 @@ def read_sim_temp_model_mean(input_data_dir: str, clim_var:str, ssp:str) -> pd.D
         print(f"An unexected error occurred: {e}")
         return None
 
-def read_sim_temp_single_models(input_data_dir: str, clim_var:str, ssp:str) -> pd.DataFrame:
+def read_sim_temp_single_models(input_data_dir: str, clim_var:str, ssp:str, window:int) -> pd.DataFrame:
 
     """
     Reads simulated global temperature data from single models and combines it with the historically observed global mean temperature. The combined
@@ -443,6 +445,8 @@ def read_sim_temp_single_models(input_data_dir: str, clim_var:str, ssp:str) -> p
             Climate variable (tas, tasmax, tasmin).
         ssp: str
             The Shared Socioeconomic Pathway emission scenario (e.g., "ssp245").
+        window: int
+            Number of years in the moving average (11 by default). Must be an odd number.
         
     Returns:
         sm_df: pd.DataFrame 
@@ -489,10 +493,10 @@ def read_sim_temp_single_models(input_data_dir: str, clim_var:str, ssp:str) -> p
         glob_obs_temp['time'] = glob_obs_temp.time.dt.year
 
         # Smooth the observed temperature with 11-year rolling mean
-        glob_obs_smooth_ds = glob_obs_temp.rolling(time=11, center=True, min_periods=1).mean()
+        glob_obs_smooth_ds = glob_obs_temp.rolling(time=window, center=True, min_periods=1).mean()
         
-        # The 5th last year  
-        last_valid_idx = glob_obs_smooth_ds.time.values[-1] - 5
+        # Take the n//2th last year  
+        last_valid_idx = glob_obs_smooth_ds.time.values[-1] - window // 2
 
         # Loop through each model
         for var_name, da in single_models_ds.data_vars.items():
@@ -506,7 +510,7 @@ def read_sim_temp_single_models(input_data_dir: str, clim_var:str, ssp:str) -> p
                 tglob_single_ds["time"] = tglob_single_ds.time.dt.year
 
                 # Take an 11-year running mean of the simulated temperature
-                tglob_single_smooth = tglob_single_ds.rolling(time=11, center=True, min_periods=1).mean()
+                tglob_single_smooth = tglob_single_ds.rolling(time=window, center=True, min_periods=1).mean()
 
                 # Merge observed and simulated global temperatures
                 diff = glob_obs_smooth_ds.sel(time=last_valid_idx) - tglob_single_smooth.sel(time=last_valid_idx)        
@@ -1539,7 +1543,8 @@ def get_pseudo_obs_and_qr_mm(
     input_data_dir:str,
     obs_df:pd.DataFrame,
     coeffs_mean_ds:xr.Dataset,
-    glob_temp_mean_df:pd.DataFrame
+    glob_temp_mean_df:pd.DataFrame,
+    n_harmonics:int
     )->tuple[dict,dict]:
 
     """
@@ -1558,6 +1563,8 @@ def get_pseudo_obs_and_qr_mm(
             A dataset which contains the model mean regression coefficients
         glob_temp_mm_df: pd.DataFrame
             A DataFrame which contains the model mean simulated global 11-year running mean temperature 
+        n_harmonics: int
+            Number of harmonics in the Fourier-series
         
     Returns:
         tuple: A tuple which contains the model-mean pseudo-observations and quantiles in separate dictionaries. 
@@ -1605,7 +1612,7 @@ def get_pseudo_obs_and_qr_mm(
                 print("QR will be applied now...")
                 
                 melted_obs_df = melt_obs_df(obs_df.loc[base1_year:base2_year]) # Use observations only from the baseline period
-                qr_obs_dict = apply_quantile_regression(melted_obs_df["day_of_year"], melted_obs_df["temperature"], quantiles=quantiles, n_harmonics=6, max_iter=10000, num_workers=4)
+                qr_obs_dict = apply_quantile_regression(melted_obs_df["day_of_year"], melted_obs_df["temperature"], quantiles=quantiles, n_harmonics=n_harmonics, max_iter=10000, num_workers=4)
                 qr_obs_df = transfer_qr_obs_mm(qr_obs_dict)
                 quantiles_mm_dict[name] = qr_obs_df
 
@@ -1649,7 +1656,8 @@ def get_pseudo_obs_and_qr_sm(
     obs_df:pd.DataFrame,
     coeffs_sm_ds:xr.Dataset,
     glob_temp_sm_df:pd.DataFrame,
-    n_boots:int) -> tuple[dict,dict]:
+    n_boots:int,
+    n_harmonics:int) -> tuple[dict,dict]:
 
     """
     Computes model-specific pseudo-observations for all attribution cases and EITHER reads pre-computed values of quantiles OR applies QR to model-specific pseudo-observations.
@@ -1667,8 +1675,10 @@ def get_pseudo_obs_and_qr_sm(
             A dataset which contains the single model regression coefficients
         glob_temp_sm_df: pd.DataFrame
             A DataFrame which contains the single model simulated global 11-year running mean temperature 
-        n_boots:int
+        n_boots: int
             Number of bootstrap iterations
+        n_harmonics: int
+            Number of Fourier-components in quantile functions
         
     Returns:
         tuple: A tuple which contains the model-specific pseudo-observations and quantiles in separate dictionaries. 
@@ -1729,13 +1739,12 @@ def get_pseudo_obs_and_qr_sm(
                 pseudo_obs_sm[name] = pseudo_obs_sm
 
                 # Apply QR to all pseudo-observations from the baseline period. The results go to a dictionary 
-                qr_sm_dict = apply_qr2sm_pseudo_obs(pseudo_obs_sm.loc[pd.IndexSlice[:,base1_year:base2_year], :], quantiles, n_harmonics=6, max_iter=10000, num_workers=4)
+                qr_sm_dict = apply_qr2sm_pseudo_obs(pseudo_obs_sm.loc[pd.IndexSlice[:,base1_year:base2_year], :], quantiles, n_harmonics=n_harmonics, max_iter=10000, num_workers=4)
                 quantiles_sm_dict[name] = transfer_qr_obs_sm(qr_sm_dict)
 
                 # Save the QR-results to a NetCDF-file so that QR does not have to be applied again in the future
                 save_qr_sm(input_data_dir, obs_source, station_id, clim_var, ssp, n_days, case, base1_year, base2_year, qr_sm_dict)
-                #input_data_dir:str, obs_source:str, station_id:str, clim_var:str, ssp:str, n_days:int, case:int, base1_year:int, base2_year:int, qr_sm_dict:dict
-
+                
         else:
             # Don't apply QR to single models (or read the corresponding files) is n_boots = 0
             pseudo_obs_sm_dict[name] = modify_obs_single_models(obs_df, coeffs_sm_ds, glob_temp_sm_df, case, doy_index)
@@ -1821,7 +1830,7 @@ def apply_quantile_regression(doy_data:np.ndarray, temp_data:np.ndarray, quantil
 
     return quantile_models
 
-def apply_qr2sm_pseudo_obs(pseudo_obs_sm_df:pd.DataFrame, quantiles:np.ndarray, n_harmonics=6, max_iter=10000, num_workers=4):
+def apply_qr2sm_pseudo_obs(pseudo_obs_sm_df:pd.DataFrame, quantiles:np.ndarray, n_harmonics:int, max_iter=10000, num_workers=4):
     """
     Apply quantile regression for model-specific pseudo-observations in the pseudo_obs_sm_df DataFrame.
 
