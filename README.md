@@ -118,7 +118,7 @@ In addition to these parameters, you need to specify the first and last years of
 
 ## Output
 
-The program prints the annual probabilities and temperatures for ```preind_year```, ```target_year``` and ```future_year``` together with probability ratio and intensity change. The results are also saved to a csv-file in the "attribution_results" directory. The output looks as follows for the time-period of 12-25 July 2025 in Sodankylä, Finland:
+The program prints the annual probabilities and temperatures for ```preind_year```, ```target_year``` and ```future_year``` together with probability ratio and intensity change. The results are also saved to a csv-file in the "attribution_results" directory. The output looks as follows for the time-period of 12-25 July, 2025 in Sodankylä, Finland:
 
 Attribution results for FMI station 101932 (Sodankylä Tähtelä):  
 
@@ -141,17 +141,17 @@ Change in intensity: 2.1°C (0.3 °C - 3.3°C)
 
 In addition, four plots are produced:  
 
-<img width="2621" height="1444" alt="time_series_plot_tasmax_Sodankylä Tähtelä_0712-0725" src="https://github.com/user-attachments/assets/65538269-e6d3-4383-8c1a-de9084123922" />
+<img width="2621" height="1517" alt="time_series_plot_tasmax_FMI_Sodankylä Tähtelä_0712-0725" src="https://github.com/user-attachments/assets/b195d451-4003-45f7-b896-6571ae145df8" />
 Figure 1. Time-series plot of the 14-day moving averge of daily maximum temperature for the period of 12-25 July. Black line shows the actual observation, blue dots show the corresponding multi-model mean pseudo-observations, representing present-day climate. The red error bars show the 5th and 95th percentiles of the ensemble of 29 model-specific pseudo-observations. The blue dashed line marks the observation (28.0 °C) of year 2025.
 
 <img width="3295" height="1747" alt="observation_plot_tasmax_Sodankylä Tähtelä_0712-0725" src="https://github.com/user-attachments/assets/701a7a50-1b6f-410d-963a-2b99ecc22bd3" />
 Figure 2. 14-day moving avearge daily maximum temperature observations in Sodankylä, Finland from 1908 to 2025 (blue dots) and their quantile functions for the median (yellow) and selected low (green and blue) and high (orange and red) quantiles. The observation corresponding to the heatwave of summer 2025 is highlighted with a red dot. The red shaded area higlights the time-period of the observation (12-25 July).
 
-<img width="5434" height="1965" alt="distribution_plot_FMI_101932_0712-0725" src="https://github.com/user-attachments/assets/d75f804f-f98d-4005-83fe-e0360faff60d" />
-Figure 3. a) The frequency distribution of pseudo-observations representing the 14-day moving average of daily maximum temperature observations in the present-day climate (2025) in Sodankylä, Finland (blue bars) and the corresponding continuous probability distribution function (blue line). In the upper left corner, the values of the four moments are annotated: mean (μ), variance (σ²), skewness (γ) and kurtosis (κ). b) The continuous probability distributions of pseudo-observations for climates in years 1900 (green line), 2025 (blue line) and 2050 (red line). Black vertical line marks the observation of the year 2025. The text panel shows the probabilities of observing higher temperatures than the observed temperature of 28.0 °C, return periods and intensities.
+<img width="5464" height="1965" alt="distribution_plot_FMI_Sodankylä Tähtelä_0712-0725" src="https://github.com/user-attachments/assets/d25b614b-f792-479c-90a3-88d4cbb61ed9" />
+Figure 3. (a) The frequency distribution of pseudo-observations representing the 14-day moving average of daily maximum temperatures for the time period of 12-25 July in the climate of the year 2025 in Sodankylä, Finland. The corresponding probability distribution function is shown with a blue line. The values of the first four moments are annotated in the upper left corner of the figure. (b) Probability distribution functions for the climates of the years 1900 (green line), 2025 (blue line) and 2050 (red line) under the SSP2-4.5 scenario. The black vertical line marks the observed 14-day moving average of daily maximum temperatures for the time-period of 14-25 July 2025. The probability for the temperature being at least the observed 28.0 °C is shown by the shaded area right of the vertical black line below each probability distribution function.
 
-<img width="2446" height="2985" alt="model_statistics_FMI_101932_0712-0725" src="https://github.com/user-attachments/assets/947ea556-77f8-487c-86e0-e4f7445dfd0e" />
-Figure 4. Model-simulated probability ratios and intensity changes for the time-period of 12-25 July, 2025 in Sodankylä, Finland. The uncertainty in the probability ratio values results from bootstrap sampling of observations. No uncertainty estimates are provided for the intensity changes in the individual models because only one realization per model was used to calculate the regression coefficients. The boxes show the first and third quartiles and whiskers show the 5-95th percentiles of the realization. MMM at the bottom row refers to multi-model mean estimate.
+<img width="2446" height="2985" alt="model_statistics_FMI_Sodankylä Tähtelä_0712-0725" src="https://github.com/user-attachments/assets/b1b468ac-9ced-423e-a69c-2baa862a6598" />
+Figure 4. Model-specific probability ratios and intensity changes of 14-day average maximum temperature for the time-period of 12-25 July, 2025 in Sodankylä, Finland. The uncertainty in the probability ratio values results from bootstrap sampling of quantiles. No uncertainty estimates are provided for the intensity changes in the individual models because only one realization per model was used to calculate the regression coefficients. The boxes show the first and third quartiles and whiskers show the 5-95th percentiles of the realization. MMM at the bottom row refers to the multi-model mean estimate.
 
 ## More information
 
