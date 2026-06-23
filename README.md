@@ -112,7 +112,7 @@ The third parameter you need to define is:
 
 ```n_boots```
 
-which defines the number of bootstrapping samples. If you set ```n_boots``` = 0, bootstrapping will not be performed. If you're running the code on laptop and you don't have the files containing pre-computed values of quantile functions (See the files in: "/input_data/qr_files/single_models"), it is recommended to set ```n_boots``` = 0, as performing quantile regression separately for up 31 samples of model-specific pseudo-observations in both ```preind_year```, ```target_year``` and possibly ```future_year``` years can take 2 hours of time, requiring a significant amount of your laptop's computational capabilities.
+which defines the number of bootstrapping samples. If you set ```n_boots``` = 0, bootstrapping will not be performed. If you're running the code on laptop and you don't have the files containing pre-computed values of quantile functions (See the files in: "/input_data/qr_files/single_models"), it is recommended to set ```n_boots``` = 0, as performing quantile regression separately for up 31 samples of model-specific pseudo-observations in both ```preind_year```, ```target_year``` and possibly ```future_year``` years can take up to 2 hours of time, requiring a significant amount of your laptop's computational capabilities.
 
 In addition to these parameters, you need to specify the first and last years of observations (```base1_year``` and ```base2_year```) used in estimating the probability distribution and the path to input_data and saving figures. Typically, ```base1_year```= 1901 and ```base2_year``` = ```target_year``` - 1.  
 
