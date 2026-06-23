@@ -89,7 +89,7 @@ The eight parameter is:
 
 ```end_day```
 
-which defines the end day in the period (1-31). If you intend to calculate attribution results for the date speficied by ```start_month``` and ```start_day``` variables, , set ```end_day``` = None.
+which defines the end day in the period (1-31). If you intend to calculate attribution results for the date speficied by ```start_month``` and ```start_day``` variables, set ```end_day``` = None.
 
 
 ### Probability, scenario and uncertainty estimate
