@@ -11,7 +11,6 @@ import pandas as pd
 import xarray as xr
 import os, glob, re
 from pathlib import Path
-#from datetime import date, datetime, timedelta
 import datetime as dt
 import xml.etree.ElementTree as ET
 from fmiopendata.wfs import download_stored_query
@@ -71,85 +70,92 @@ def doy(month:int, day:int) -> int:
     doy = int((275 * month) / 9.0) - K * int((month + 9) / 12.0) + day - 30
     return doy
 
-def get_doy_index_and_ndays(start_month:int, start_day:int, end_month:int|None=None, end_day:int|None=None) -> tuple[int,int]:
 
-    """ 
-    Calculates the day of year index 'doy_index' (center day for off number days and last day for even number days) of the time period
-    AND the number of days between two dates (start date and end date). Works for all 1-31 day long periods.
-    Parameters:
-        start_month (int): 1-12
-        start_day (int): 1-31
-        end_month (int): 1-12 (Optional)
-        end_day (int): 1-31 (Optional)
-    Returns:
-        doy (int), n_days (int): day of year index, and number of days in the time period
+def get_doy_index_and_ndays(
+    start_month: int,
+    start_day: int,
+    end_month: int | None = None,
+    end_day: int | None = None,
+) -> tuple[int, int]:
+
+    """
+    Calculates the day-of-year index associated with a period.
+
+    Odd n_days:Middle day.
+    Even n_days:Latter of the two central days.
+
+    Returns
+    -------
+    doy_index : int, day-of-year index (1-365).
+    n_days : int, length of the period.
     """
 
-
-    # Single-day attribution
+    # Single-day case
+    # ---------------
     if end_month is None and end_day is None:
-        # Check that the given date is valid
+
+        # Verify the date
         check_date(start_month, start_day)
-        
-        # Determine the index (day of year)
-        doy_index = doy(start_month,start_day)
+
+        # Get the corresponding doy_index
+        doy_index = doy(start_month, start_day)
         n_days = 1
 
-    # Multi-day attribution
-    else:
-        # Check that the given dates are valid
-        check_date(start_month, start_day)
-        check_date(end_month, end_day)
+        return doy_index, n_days
 
-        # Start and end days of year
-        start_doy = doy(start_month,start_day)
-        end_doy = doy(end_month,end_day)
+    # Multi-day case
+    # --------------
 
-        # A range of days that extends from Dec to Jan
-        if start_doy > end_doy:
-            n_days = (365 - start_doy + 1) + end_doy
-            
-            # Odd days
-            if n_days % 2 == 1:
-                doy_index = end_doy - n_days // 2
-            # Even days
-            else:
-                doy_index = end_doy
+    # Verify the dates
+    check_date(start_month, start_day)
+    check_date(end_month, end_day)
 
-        # Other ranges of days within the calendar year
+    # Get the "doy_index" of the first and last day of the period
+    start_doy = doy(start_month, start_day)
+    end_doy = doy(end_month, end_day)
+
+    # Period within calendar year
+    if start_doy <= end_doy:
+
+        n_days = end_doy - start_doy + 1
+
+        if n_days % 2 == 1:
+            # odd -> true center
+            doy_index = start_doy + n_days // 2
         else:
-            n_days = end_doy - start_doy + 1 
-            
-            # Odd days
-            if n_days % 2 == 1:
-                doy_index = end_doy - n_days // 2
-            # Even days
-            else:
-                doy_index = end_doy
-        
+            # even -> latter center day
+            doy_index = start_doy + n_days // 2
+
+    # Period crossing Dec -> Jan
+    else:
+
+        n_days = (365 - start_doy + 1) + end_doy
+
+        # Create a continuous index beginning at start_doy
+        center_offset = n_days // 2
+
+        doy_index = start_doy + center_offset
+
+        if doy_index > 365:
+            doy_index -= 365
+
     return doy_index, n_days
 
 def doy_to_mm_dd(day_of_year: int) -> str:
     """Converts day of year to MM-DD form for a non-leap year."""
     return (dt.datetime(2001, 1, 1) + dt.timedelta(days=int(day_of_year) - 1)).strftime("%m-%d")
 
-def get_date_strings(doy_index:int, n_days:int) -> tuple[str,str]:
 
-    """Constructs a date string for figures and figure names
-    
-    Parameters:
-        doy_index: int
-            day of year index
-        n_days: int
-            Number of days in the time-period
-    
-    Returns:
-        tuple[str, str]
-            - Time-period string, displayed in the figure (e.g. 1-5 Jan)
-            - Time-period string, for figure name (e.g. MMDD_MMDD)
+
+def get_date_strings(doy_index: int, n_days: int) -> tuple[str, str]:
 
     """
-    
+    Constructs a date string for figures and figure names
+    given that:
+      - odd n_days: doy_index is center day
+      - even n_days: doy_index is latter center day
+    """
+
     months = {
         "01": "Jan",
         "02": "Feb",
@@ -160,59 +166,76 @@ def get_date_strings(doy_index:int, n_days:int) -> tuple[str,str]:
         "07": "July",
         "08": "Aug",
         "09": "Sep",
-        "10": "Aug",
+        "10": "Oct",
         "11": "Nov",
         "12": "Dec"
-        }
-    
-    # n-day mean case
-    if n_days > 1:
-        if n_days % 2 == 1:
-            half_window = n_days // 2
-            start_doy = doy_index - half_window
-            end_doy = doy_index + half_window
-        else:
-            start_doy = doy_index - n_days + 1
-            end_doy = doy_index
+    }
 
-        # Convert days of year to "MM-DD" dates
-        start_doy = (start_doy - 1) % 365 + 1
-        end_doy = (end_doy - 1) % 365 + 1
-        
-        # Convert doys to "MM-DD" form
-        start_mmdd = doy_to_mm_dd(start_doy)
-        end_mmdd = doy_to_mm_dd(end_doy)
-
-        # Extract months and days
-        start_month = start_mmdd[:2]
-        end_month = end_mmdd[:2]
-        start_day = start_mmdd[-2:].lstrip("0")
-        end_day = end_mmdd[-2:].lstrip("0")
-
-        # Construct a datestring for the figure name
-        figname_date_string = f"{start_mmdd.replace('-', '')}-{end_mmdd.replace('-', '')}"
-
-        # Return the time period 
-        if start_month == end_month:
-            return f"{start_day} – {end_day} {months[start_month]}", figname_date_string
-        else:
-            return f"{start_day} {months[start_month]} – {end_day} {months[end_month]}", figname_date_string
-    
     # Single-day case
-    else:
+    if n_days == 1:
         mmdd = doy_to_mm_dd(doy_index)
         month = mmdd[:2]
         day = mmdd[-2:].lstrip("0")
 
-        figname_date_string = f"{mmdd.replace('-', '')}"
+        return f"{day} {months[month]}", mmdd.replace("-", "")
 
-        return f"{day} {months[month]}", figname_date_string
+    # Multi-day case
+    if n_days % 2 == 1:
+        half = n_days // 2
+        start_doy = doy_index - half
+        end_doy = doy_index + half
+
+    else:
+        half = n_days // 2
+        start_doy = doy_index - half
+        end_doy = doy_index + half - 1
+
+    # Wrap around year
+    start_doy = (start_doy - 1) % 365 + 1
+    end_doy = (end_doy - 1) % 365 + 1
+
+    # Convert to dates
+    start_mmdd = doy_to_mm_dd(start_doy)
+    end_mmdd = doy_to_mm_dd(end_doy)
+
+    start_month = start_mmdd[:2]
+    end_month = end_mmdd[:2]
+
+    start_day = str(int(start_mmdd[-2:]))
+    end_day = str(int(end_mmdd[-2:]))
+
+    figname_date_string = f"{start_mmdd.replace('-', '')}-{end_mmdd.replace('-', '')}"
+
+    # Formatting
+    if start_month == end_month:
+        return f"{start_day} – {end_day} {months[start_month]}", figname_date_string
+    else:
+        return (
+            f"{start_day} {months[start_month]} – {end_day} {months[end_month]}",
+            figname_date_string
+        )
+
+
 
 #################################################################################################################################################################
 
 ############################################## Functions for reading and manipulating the input data ############################################################
 
-# Regression coefficients for multi-model mean (all the days of a calendar year) 
+# A 6-component Fourier series for a 365-day calendar
+def fourier_series_365days(x, *params):
+    """
+    Fourier series function up to n harmonics.
+    The first term is the offset (mean value), then sine/cosine terms follow.
+    """
+    a0 = params[0]  # The constant term
+    result = a0
+    num_harmonics = (len(params) - 1) // 2  # Calculate number of harmonics
+    # Loop through harmonics, using the correct range
+    for i in range(1, num_harmonics + 1):
+        result += params[2*i-1] * np.sin(2 * np.pi * i * x / 365) + params[2*i] * np.cos(2 * np.pi * i * x / 365)
+    return result
+
+# Read multi-model mean regression coefficients
 def read_coeffs_model_mean(input_data_dir: str, clim_var:str, ssp:str, obs_lat:float, obs_lon:float, n:int) -> xr.Dataset:
     
     """
@@ -249,27 +272,98 @@ def read_coeffs_model_mean(input_data_dir: str, clim_var:str, ssp:str, obs_lat:f
     
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"Error: The file {file_path} was not found.")
-    
+ 
     # Open the multi-model-mean dataset
-    ds_mm = xr.open_dataset(file_path)
+    ds_local = xr.open_dataset(file_path).sel(lat=obs_lat,lon=obs_lon,method="nearest")
     
     # Extract the list corresponding to all the cases of n-day running means
-    ndays = ds_mm.coords["ndays"].values
+    ndays = ds_local.coords["ndays"].values
+
+    # Check that the given number of days is between 1 and 31
+    if n < 1 or n > 31:
+        raise ValueError("n must be between 1 and 31")
+    
+    # Dummy time coordinate
+    time = pd.date_range("2001-01-01", periods=365, freq="D")
+
+    # Days array
+    days = np.arange(1,366,1)
+
+    # List for B and D
+    BD_arrays = []
 
     # Extract local coefficients for the case where n is in ndays
     if n in ndays:
-        ds_local_coeffs = ds_mm.sel(lat=obs_lat, lon=obs_lon, ndays=n, method='nearest')
+        ds_n = ds_local.sel(ndays=n)
 
-    # Interpolate local coefficients for the case where n is not in ndays 
+        # Get Fourier series parameters
+        B_params = ds_n["B"].values
+        D_params = ds_n["D"].values
+
+        # Reconstruct Fourier series
+        B_series = fourier_series_365days(days, *B_params)
+        D_series = fourier_series_365days(days, *D_params)
+
+        # Create DataArrays
+        da_B = xr.DataArray(B_series,dims=["time"],coords={"time": time},name="B")
+        da_D = xr.DataArray(D_series,dims=["time"],coords={"time": time},name="D")
+
+        # Combine B and D to a single DataArray
+        BD_arrays.extend([da_B, da_D])
+        
+    # Apply linear interpolation for local coefficients when n is NOT in ndays
     else:
-        ds_local_coeffs = ds_mm.sel(lat=obs_lat, lon=obs_lon, method='nearest')
-        ds_local_coeffs = ds_local_coeffs.interp(ndays=n)
+        lower = max([d for d in ndays if d < n], default=None)
+        upper = min([d for d in ndays if d > n], default=None)
 
-    # Coordinates are shifted to the right so that they match a trailing running mean of n
-    if n % 2 == 0:
-        ds_local_coeffs = ds_local_coeffs.roll(time = n//2, roll_coords=True)
+        # Select the data of the nearest available ndays below and above the given n 
+        ds_n_lower = ds_local.sel(ndays=lower)
+        ds_n_upper = ds_local.sel(ndays=upper)
 
-    return ds_local_coeffs
+        # Weight for interpolation
+        w = (n - lower) / (upper - lower)
+
+        # Get Fourier series parameters
+        B_params_lower = ds_n_lower["B"].values
+        D_params_lower = ds_n_lower["D"].values
+
+        B_params_upper = ds_n_upper["B"].values
+        D_params_upper = ds_n_upper["D"].values
+
+        # Reconstruct Fourier series
+        B_series_lower = fourier_series_365days(days, *B_params_lower)
+        D_series_lower = fourier_series_365days(days, *D_params_lower)
+
+        B_series_upper = fourier_series_365days(days, *B_params_upper)
+        D_series_upper = fourier_series_365days(days, *D_params_upper)
+
+        B_series_interpolated = (1 - w) * B_series_lower + w * B_series_upper
+        D_series_interpolated = (1 - w) * D_series_lower + w * D_series_upper
+        
+        # Create DataArrays
+        da_B = xr.DataArray(B_series_interpolated, dims=["time"], coords={"time": time}, name="B")
+        da_D = xr.DataArray(D_series_interpolated,dims=["time"], coords={"time": time}, name="D")
+
+        # Combine B and D to a single DataArray
+        BD_arrays.extend([da_B, da_D])
+
+    ds_out = xr.merge(BD_arrays)
+
+    # Add coords
+    ds_out = ds_out.assign_coords(
+        lon=obs_lon,
+        lat=obs_lat,
+        ndays=n
+    )
+
+    # Add Attributes
+    ds_out.attrs.update({
+        "title": "Multi-model-mean Fourier-fitted regression coefficients B and D",
+        "calendar": "365_day",
+    })
+
+    return ds_out
+
 
 # Coefficients for single models (all the days of a calendar year)
 def read_coeffs_single_models(input_data_dir: str, clim_var:str, ssp:str, obs_lat:float, obs_lon:float, n:int) -> xr.Dataset:
@@ -296,52 +390,117 @@ def read_coeffs_single_models(input_data_dir: str, clim_var:str, ssp:str, obs_la
         xr.Dataset: Coefficients for the specified location from the multi-model mean dataset.
     """
 
-    # Search for the multi-model mean file corresponding to climate variable and ssp
-    files = glob.glob(os.path.join(input_data_dir, "regression_coefficients", "single_models", f'a_{clim_var}_mean_var_*_{ssp}_*days.nc'))
-    #matches = glob.glob(pattern)
+    # Search for the single-model file corresponding to a given climate variable and ssp scenario
+    pattern = os.path.join(input_data_dir, "regression_coefficients", "single_models", f'a_{clim_var}_mean_var_*_{ssp}_nday_means.nc')
+    matches = glob.glob(pattern)
+
+    if not matches:
+        raise FileNotFoundError(f"No files found for pattern: {pattern}")
+
+    # If Exract filename
+    file_path = matches[0]
     
-    if not files:
-        raise FileNotFoundError(f"No files found for climate variable: {clim_var} and emission scenario: {ssp} in {input_data_dir}")
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"Error: The file {file_path} was not found.")
 
-    # Extract ndays from filenames
-    ndays_map = {}
-    for f in files:
-        m = re.search(r"_(\d+)days\.nc", f)
-        if m:
-            ndays_map[int(m.group(1))] = f
 
-    available_ndays = sorted(ndays_map.keys())
+    # Open the dataset and select the data for the given lat and lon    
+    ds_local = xr.open_dataset(file_path).sel(lat=obs_lat, lon=obs_lon, method="nearest")
 
-    # If n correspond to a ndays in the filename
-    if n in available_ndays:
-        return xr.open_dataset(ndays_map[n]).sel(lat=obs_lat, lon=obs_lon, method="nearest")
+    # List of models
+    models = [var.split('_')[1] for var in ds_local.data_vars if var.startswith('B_')]
 
-    # Interpolate between closest values
-    else:
+    # List of window lengths
+    ndays_list = ds_local.ndays.values
+
+    # Dummy time coordinate
+    time = pd.date_range("2001-01-01", periods=365, freq="D")
+
+    # Check that the given number of days is between 1 and 31
+    if n < 1 or n > 31:
+        raise ValueError("n must be between 1 and 31")
+
+    # Days array
+    days = np.arange(1,366,1)
+
+    # List for B and D
+    BD_arrays = []
+
+    # Select given n if it is in the ndays
+    if n in ndays_list:
+        ds_n = ds_local.sel(ndays=n)    
+
+        for model in models:
         
-        lower = max([d for d in available_ndays if d < n], default=None)
-        upper = min([d for d in available_ndays if d > n], default=None)
+            # Get Fourier series parameters
+            B_params = ds_n[f"B_{model}"].values
+            D_params = ds_n[f"D_{model}"].values
 
-        if lower is None or upper is None:
-            raise ValueError(f"Number of days must be in 1...31 range.")
+            # Reconstruct Fourier series
+            B_series = fourier_series_365days(days, *B_params)
+            D_series = fourier_series_365days(days, *D_params)
 
-        # Open the two datasets
-        ds_lower = xr.open_dataset(ndays_map[lower]).sel(lat=obs_lat, lon=obs_lon, method="nearest")
-        ds_upper = xr.open_dataset(ndays_map[upper]).sel(lat=obs_lat, lon=obs_lon, method="nearest")
+            # Create DataArrays
+            da_B = xr.DataArray(B_series,dims=["time"],coords={"time": time},name=f"B_{model}")
+            da_D = xr.DataArray(D_series,dims=["time"],coords={"time": time},name=f"D_{model}")
 
-        # Add ndays coordinate
-        ds_lower = ds_lower.expand_dims(ndays=[lower])
-        ds_upper = ds_upper.expand_dims(ndays=[upper])
+            # Combine B and D to a single DataArray
+            BD_arrays.extend([da_B, da_D])
+          
+    # Apply linear interpolation for local coefficients when n is NOT in ndays
+    else:
+        lower = max([d for d in ndays_list if d < n], default=None)
+        upper = min([d for d in ndays_list if d > n], default=None)
 
-        # Concatenate and interpolate
-        ds_both = xr.concat([ds_lower, ds_upper], dim="ndays")
-        ds = ds_both.interp(ndays=n)
+        # Select the data of the nearest available ndays below and above the given n 
+        ds_n_lower = ds_local.sel(ndays=lower)
+        ds_n_upper = ds_local.sel(ndays=upper)
 
-        # Coordinates are shifted to the right so that they match a trailing running mean of n
-        if n % 2 == 0:
-            ds = ds.roll(time=n//2, roll_coords=True)
+        # Weight for interpolation
+        w = (n - lower) / (upper - lower)
+     
+        for model in models:
 
-        return ds
+            # Get Fourier series parameters
+            B_params_lower = ds_n_lower[f"B_{model}"].values
+            D_params_lower = ds_n_lower[f"D_{model}"].values
+
+            B_params_upper = ds_n_upper[f"B_{model}"].values
+            D_params_upper = ds_n_upper[f"D_{model}"].values
+
+            # Reconstruct Fourier series
+            B_series_lower = fourier_series_365days(days, *B_params_lower)
+            D_series_lower = fourier_series_365days(days, *D_params_lower)
+
+            B_series_upper = fourier_series_365days(days, *B_params_upper)
+            D_series_upper = fourier_series_365days(days, *D_params_upper)
+
+            B_series_interpolated = (1 - w) * B_series_lower + w * B_series_upper
+            D_series_interpolated = (1 - w) * D_series_lower + w * D_series_upper
+            
+            # Create DataArrays
+            da_B = xr.DataArray(B_series_interpolated, dims=["time"], coords={"time": time}, name=f"B_{model}")
+            da_D = xr.DataArray(D_series_interpolated,dims=["time"], coords={"time": time}, name=f"D_{model}")
+
+            # Combine B and D to a single DataArray
+            BD_arrays.extend([da_B, da_D])
+
+    ds_out = xr.merge(BD_arrays)
+
+    # Add coords
+    ds_out = ds_out.assign_coords(
+        lon=obs_lon,
+        lat=obs_lat,
+        ndays=n
+    )
+
+    # Add Attributes
+    ds_out.attrs.update({
+        "title": "Sigle-model Fourier-fitted regression coefficients B and D",
+        "calendar": "365_day",
+    })
+
+    return ds_out
 
 
 # Read the simulated temperature for multi-model mean
@@ -369,8 +528,8 @@ def read_sim_temp_model_mean(input_data_dir: str, clim_var:str, ssp:str, window:
     try:
 
         # Create for paths to files
-        pattern_simulated_ts = os.path.join(input_data_dir, "temp_time_series", f'{clim_var}_Tglob_{ssp}_multi-model_mean_*.nc')
-        pattern_obs_ts = os.path.join(input_data_dir, "temp_time_series", "HadCRUT5_global_annual.nc")
+        pattern_simulated_ts = os.path.join(input_data_dir, "GMST_time_series", "model_mean", f'{clim_var}_Tglob_{ssp}_multi-model_mean_*.nc')
+        pattern_obs_ts = os.path.join(input_data_dir, "GMST_time_series", "observed", "HadCRUT5_global_annual.nc")
         
         # Search for matches
         matches_simulated_ts = glob.glob(pattern_simulated_ts)
@@ -456,8 +615,8 @@ def read_sim_temp_single_models(input_data_dir: str, clim_var:str, ssp:str, wind
     try:
 
         # Create unix-style wild card patterns 
-        pattern_simulated_ts = os.path.join(input_data_dir, "temp_time_series", f"{clim_var}_Tglob_{ssp}_[0-9]*mod_*.nc")
-        pattern_obs_ts = os.path.join(input_data_dir, "temp_time_series", "HadCRUT5_global_annual.nc")
+        pattern_simulated_ts = os.path.join(input_data_dir, "GMST_time_series", "single_models", f"{clim_var}_Tglob_{ssp}_[0-9]*mod_*.nc")
+        pattern_obs_ts = os.path.join(input_data_dir, "GMST_time_series", "observed", "HadCRUT5_global_annual.nc")
         
         # Search the patterns
         matches_simulated_ts = glob.glob(pattern_simulated_ts)
@@ -755,8 +914,8 @@ def read_daily_obs_from_FROST(frost_client_id: str, metnosid: str, clim_var:str,
     parameters = {
         "sources": metnosid,
         "elements": var_name,
-        "referencetime": f"1850-01-01/{pd.Timestamp.utcnow().strftime('%Y-%m-%d')}",
-        "timeoffsets": "default",
+        "referencetime": f"1950-01-01/{pd.Timestamp.utcnow().strftime('%Y-%m-%d')}",
+        "timeoffsets": "default", #default
         "levels": "default",
         "qualities": "0,1,2,3,4",
     }
@@ -906,6 +1065,8 @@ def read_daily_obs_from_SMHI(station_id: int, clim_var: str, period: str) -> pd.
         f"parameter/{parameter_id}/station/{station_id}/period/{period_id}/data.csv"
     )
     response = requests.get(url)
+    #print(url)
+    
     if response.status_code != 200:
         raise RuntimeError(f"Failed to fetch data: {response.status_code}")
 
@@ -1051,11 +1212,11 @@ def pivot_SMHI_obs(SMHI_obs: pd.DataFrame) -> pd.DataFrame:
 def read_daily_obs(obs_source:str, clim_var:str, station_id:str, station2_id:str|None=None, frost_client_id:str|None=None)->tuple[pd.DataFrame, dict]:
     
     """
-    Downloads local daily temperature (mean, max or min) observations of a given weather station from the FMI, SMHI or FROST API.
+    Downloads local daily temperature (mean, max or min) observations of a given weather station from the FMI, SMHI or FROST (METNO) API.
 
     Parameters:
         obs_source: str
-            Acronym for observation source (FMI, SMHI or FROST)
+            Acronym for observation source (FMI, SMHI or METNO)
         frost_client_id: str
             Client ID for Frost API authentication (see https://frost.met.no/howto.html).
         clim_var: str
@@ -1096,7 +1257,7 @@ def read_daily_obs(obs_source:str, clim_var:str, station_id:str, station2_id:str
             sys.exit(1)
 
     # Read FROST observations
-    elif obs_source == "FROST":
+    elif obs_source == "METNO":
         try:
             daily_temp_obs_df = read_daily_obs_from_FROST(frost_client_id, station_id, clim_var, False)
             station_meta = get_FROST_station_metadata(frost_client_id,station_id)
@@ -1239,50 +1400,123 @@ def unmelt_obs_df(melted_obs_df: pd.DataFrame) -> pd.DataFrame:
 
     return unmelted_obs_df
 
+def get_30yr_anomaly(obs_df, doy_index, year, clim_start=1991, clim_end=2020):
+    
+    """
+    Compute anomaly for a given year and day_of_year relative to a climatology.
+
+    Returns both:
+    - absolute anomaly (in original units)
+    - sigma anomaly (in standard deviations, ddof=1)
+    """
+
+    # Climatology sample
+    clim_sample = obs_df.loc[clim_start:clim_end, doy_index]
+
+    # Mean and standard deviation (sample std, ddof=1)
+    clim_mean = clim_sample.mean()
+    clim_std = clim_sample.std(ddof=1)
+
+    # Value for target year/day
+    obs = obs_df.loc[year, doy_index]
+
+    # Absolute anomaly
+    anomaly = obs - clim_mean
+
+    # Sigma anomaly (handle zero std)
+    if clim_std == 0 or np.isnan(clim_std):
+        sigma_anomaly = np.nan
+    else:
+        sigma_anomaly = anomaly / clim_std
+
+    return anomaly, sigma_anomaly
+
 ###########################################################################################################################################################################################
 
 ################################################### Modify observations to pseudo-observations ############################################################################################
 
 def compute_running_mean(obs_df: pd.DataFrame, n_days: int) -> pd.DataFrame:
     """
-    Compute an n-day running mean for daily temperature observations. Centered (trailing) running mean is applied for odd (even) days.
-    n-day periods which contain NaNs are ignored.
+    Compute an n-day running mean for daily temperature observations.
 
-    Arguments:
-        obs_df: pd.DataFrame 
-            Contains daily temperature observations. Rows are years, columns are "day_of_year".
-        n_days: int
-            Number of days in the running mean
-    
-    Returns:
-        obs_nday_mean_df: pd.DataFrame
-            Contains n-day means of daily temperature observations. Rows are years, columns are the corresponding day_of_year indices.
+    Odd n_days: Centered running mean.
+    Even n_days: Trailing running mean indexed to the latter center day of the window.
+
+    Parameters
+    ----------
+    obs_df : pd.DataFrame
+        Rows are years, columns are day_of_year.
+    n_days : int
+        Length of running mean window.
+
+    Returns
+    -------
+    pd.DataFrame
+        Running means with the same shape/index/columns as obs_df.
     """
 
-    # Melt the pivoted DataFrame
-    melted = (obs_df.reset_index().melt(id_vars="year", var_name="day_of_year", value_name="temperature"))
+    # Convert the pivoted dataframe to a long format
+    melted = (
+        obs_df.reset_index()
+        .melt(
+            id_vars="year",
+            var_name="day_of_year",
+            value_name="temperature"
+        )
+    )
+
+    # Make sure that "day_of_year" column contain integers
     melted["day_of_year"] = melted["day_of_year"].astype(int)
 
-    # Create a continuous time index
-    melted = melted.sort_values(["year", "day_of_year"]).reset_index(drop=True)
+    # Chronological ordering
+    melted = (
+        melted
+        .sort_values(["year", "day_of_year"])
+        .reset_index(drop=True)
+    )
 
-    # Centered running mean for odd days
+    # Odd window length: centered mean
     if n_days % 2 == 1:
-        melted["temperature_rm"] = (melted["temperature"].rolling(window=n_days, center=True, min_periods=n_days).mean())
 
-    # Trailing running mean for even days
-    if n_days % 2 == 0:
-        melted["temperature_rm"] = (melted["temperature"].rolling(window=n_days, center=False, min_periods=n_days).mean())
+        melted["temperature"] = (
+            melted["temperature"]
+            .rolling(
+                window=n_days,
+                center=True,
+                min_periods=n_days
+            )
+            .mean()
+        )
 
-    # Replace original temperature with running mean
-    melted["temperature"] = melted["temperature_rm"]
-    melted = melted.drop(columns=["temperature_rm"])
+    # Even window length: trailing mean shifted to latter central day
+    else:
 
-    # Convert the melted DataFrame to a pivoted DataFrame
-    obs_nday_mean_df = melted.pivot(index="year", columns="day_of_year", values="temperature")
+        shift_days = -(n_days // 2 - 1)
 
-    # Reindex to original structure
-    return obs_nday_mean_df.reindex(index=obs_df.index, columns=obs_df.columns)
+        melted["temperature"] = (
+            melted["temperature"]
+            .rolling(
+                window=n_days,
+                center=False,
+                min_periods=n_days
+            )
+            .mean()
+            .shift(shift_days)
+        )
+
+    # Convert back to wide format
+    obs_nday_mean_df = melted.pivot(
+        index="year",
+        columns="day_of_year",
+        values="temperature"
+    )
+
+    # Match original structure
+    return obs_nday_mean_df.reindex(
+        index=obs_df.index,
+        columns=obs_df.columns
+    )
+
 
 # A function that converts observations to pseudo-observations for single models
 def modify_obs_single_models(
@@ -1425,7 +1659,7 @@ def melt_pseudo_obs_single_models(pseudo_obs_df: pd.DataFrame) -> pd.DataFrame:
     
     # Melt the DataFrame to long format
     melted_df = pseudo_obs_df.melt(
-        id_vars=["Model", "Year"],
+        id_vars=["model", "year"],
         var_name="day_of_year",
         value_name="temperature"
     )
@@ -1437,7 +1671,7 @@ def melt_pseudo_obs_single_models(pseudo_obs_df: pd.DataFrame) -> pd.DataFrame:
     melted_df = melted_df.dropna(subset=["temperature"])
 
     # Rename columns for clarity
-    melted_df = melted_df.rename(columns={"Model": "model", "Year": "year"})
+    #melted_df = melted_df.rename(columns={"Model": "model", "Year": "year"})
 
     # Sort by model, year, and day_of_year
     melted_df = melted_df.sort_values(by=["model", "year", "day_of_year"]).reset_index(drop=True)
@@ -1608,15 +1842,15 @@ def get_pseudo_obs_and_qr_mm(
             
             # Apply QR to observations
             if not qr_exists:
-                print(f"QR-file not found for the {n_days}-day moving average of {clim_var_map[clim_var]} observations.") 
-                print("QR will be applied now...")
+                print(f"Quantile regression hasn't been performed before (File containing the quantiles wasn't found) for the {n_days}-day moving average of {clim_var_map[clim_var]} observations.") 
+                print("Quantile regression will be performed now...\n")
                 
                 melted_obs_df = melt_obs_df(obs_df.loc[base1_year:base2_year]) # Use observations only from the baseline period
                 qr_obs_dict = apply_quantile_regression(melted_obs_df["day_of_year"], melted_obs_df["temperature"], quantiles=quantiles, n_harmonics=n_harmonics, max_iter=10000, num_workers=4)
                 qr_obs_df = transfer_qr_obs_mm(qr_obs_dict)
                 quantiles_mm_dict[name] = qr_obs_df
 
-                # Save the results of QR so that it doesn't need to be run again in the future
+                # Save the results of QR so that it doesn't have to be perfomed again in the future
                 save_qr_obs_and_mm(input_data_dir, obs_source, station_id, clim_var, ssp, n_days, case, base1_year, base2_year, qr_obs_df)
         
         # Pseudo-observation case
@@ -1636,15 +1870,15 @@ def get_pseudo_obs_and_qr_mm(
                 psudo_obs_mm_df = modify_obs_model_mean(obs_df, coeffs_mean_ds, glob_temp_mean_df, case)
                 pseudo_obs_mm_dict[name] = psudo_obs_mm_df
                 
-                print(f"QR-file not found for the {n_days}-day moving average of {clim_var_map[clim_var]} model-mean pseudo-observations in the year {case}.")
-                print("QR will be applied now...")
+                print(f"Quantile regression hasn't been performed before (File containing the quantiles wasn't found) for the {n_days}-day moving average of {clim_var_map[clim_var]} multi-model-mean pseudo-observations in the year {case}.")
+                print("Quantile regression will be performed now...\n")
                 
                 melted_pseudo_obs_df = melt_obs_df(psudo_obs_mm_df.loc[base1_year:base2_year]) # Use pseudo-observations only from the baseline period
                 qr_pseudo_obs_dict = apply_quantile_regression(melted_pseudo_obs_df["day_of_year"], melted_pseudo_obs_df["temperature"], quantiles=quantiles, n_harmonics=6, max_iter=10000, num_workers=4)
                 qr_pseudo_obs_df = transfer_qr_obs_mm(qr_pseudo_obs_dict)
                 quantiles_mm_dict[name] = qr_pseudo_obs_df
 
-                # Save the results of QR so that it doesn't need to be run again in the future
+                # Save the results of QR so that it doesn't have to be performed again in the future
                 save_qr_obs_and_mm(input_data_dir, obs_source, station_id, clim_var, ssp, n_days, case, base1_year, base2_year, qr_pseudo_obs_df)
     
     return pseudo_obs_mm_dict, quantiles_mm_dict
@@ -1724,32 +1958,56 @@ def get_pseudo_obs_and_qr_sm(
             quantiles_sm_dict[name] = read_qr_sm_obs(input_data_dir, obs_source, station_id, clim_var, ssp, case, doy_index, n_days)
             
             # Check if QR has been done previously
-            qr_exists = quantiles_sm_dict[name] is not None
+            qr_exists = quantiles_sm_dict[name] is not None    
 
             if qr_exists:
                 # Calculate a time-series of pseudo-observations only for the selected time-period (e.g. 1 Jan - 5 Jan)
                 pseudo_obs_sm_dict[name] = modify_obs_single_models(obs_df, coeffs_sm_ds, glob_temp_sm_df, case, doy_index)
             else:
-                print(f"QR-file not found for the single-model {n_days}-day moving average of {clim_var_map[clim_var]} pseudo-observations in the year {case}.")
-                print(f"QR is applied to {n_models} model-specific pseudo-observations in the year {case}.")
-                print("This will take approximately 20 to 45 minutes...")
+                print(f"Quantile regression hasn't been performed before (File containing the quantiles wasn't found) for the single-model {n_days}-day moving average of {clim_var_map[clim_var]} pseudo-observations in the year {case}.")
+                print(f"Quantile regression will be performed now to {n_models} model-specific pseudo-observations in the year {case}.")
+                print(f"This will take approximately 20 to 45 minutes for year {case}...\n")
             
                 # Calculate pseudo-observations for all n_day periods
                 pseudo_obs_sm = modify_obs_single_models(obs_df, coeffs_sm_ds, glob_temp_sm_df, case)
-                pseudo_obs_sm[name] = pseudo_obs_sm
+                pseudo_obs_sm_dict[name] = pseudo_obs_sm
 
-                # Apply QR to all pseudo-observations from the baseline period. The results go to a dictionary 
+                # Apply QR to all pseudo-observations from the baseline period. The results go to a dictionary and are saved to a 
                 qr_sm_dict = apply_qr2sm_pseudo_obs(pseudo_obs_sm.loc[pd.IndexSlice[:,base1_year:base2_year], :], quantiles, n_harmonics=n_harmonics, max_iter=10000, num_workers=4)
-                quantiles_sm_dict[name] = transfer_qr_obs_sm(qr_sm_dict)
+                quantiles_sm_full = transfer_qr_obs_sm(qr_sm_dict)
+                
+                # Get quantiles corresponding to a given doy 
+                quantiles_sm = get_quantiles_at_doy(quantiles_sm_full, doy_index)
+                quantiles_sm_dict[name] = quantiles_sm
 
                 # Save the QR-results to a NetCDF-file so that QR does not have to be applied again in the future
-                save_qr_sm(input_data_dir, obs_source, station_id, clim_var, ssp, n_days, case, base1_year, base2_year, qr_sm_dict)
+                save_qr_sm(input_data_dir, obs_source, station_id, clim_var, ssp, n_days, case, base1_year, base2_year, quantiles_sm_full)
                 
         else:
-            # Don't apply QR to single models (or read the corresponding files) is n_boots = 0
+            # Don't apply QR to single models (or read the corresponding files) if n_boots = 0
             pseudo_obs_sm_dict[name] = modify_obs_single_models(obs_df, coeffs_sm_ds, glob_temp_sm_df, case, doy_index)
 
     return pseudo_obs_sm_dict, quantiles_sm_dict
+
+def get_quantiles_at_doy(qr_sm_dict: dict, doy_index: int) -> pd.DataFrame:
+    """
+    Convert dict[model -> DataFrame(quantile × day_of_year)]
+    into DataFrame(quantile × model) for a single day_of_year.
+    """
+
+    data = {}
+
+    for model, df in qr_sm_dict.items():
+        if doy_index not in df.columns:
+            raise KeyError(f"doy_index {doy_index} not found for model {model}")
+        
+        data[model] = df[doy_index]
+
+    quantiles_sm = pd.DataFrame(data)
+    quantiles_sm = quantiles_sm.astype(float)
+    quantiles_sm.index.name = "quantile"
+
+    return quantiles_sm
 
 
 #######################################################################################################################################################################################################################
@@ -2023,7 +2281,7 @@ def save_qr_obs_and_mm(input_data_dir:str, obs_source:str, station_id:str, clim_
                 "case": case,
                 "baseline_period": f"{str(base1_year)}-{str(base2_year)}",
                 "window": f"{n_days}-day running mean window",
-                "date_created": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                "date_created": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 }
     )
     
@@ -2132,28 +2390,15 @@ def save_qr_sm(input_data_dir:str, obs_source:str, station_id:str, clim_var:str,
             "year": str(case),
             "baseline_period": f"{str(base1_year)}-{str(base2_year)}",
             "window": f"{n_days}-day running mean",
-            "date_created": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "date_created": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
     )
 
     # Save to NetCDF
-    nc_path = os.path.join(path2dir,f"{obs_source}_{station_id}_{clim_var}_qr_pseudo_obs_sm_{ssp}_{case}_{n_days}days.nc")
+    nc_path = os.path.join(path2dir,f"{obs_source}_{station_id}_{clim_var}_qr_sm_{ssp}_{case}_{n_days}days.nc")
     ds.to_netcdf(nc_path)
 
     print(f"Saved NetCDF: {nc_path}")
-
-
-def newest_qr_file(all_days: Path, nday: Path) -> Path:
-    
-    """
-    Return the newest existing QR file for a case.
-    Raises FileNotFoundError if neither file exists.
-    """
-
-    paths = [p for p in (all_days, nday) if p.exists()]
-    if not paths:
-        raise FileNotFoundError
-    return max(paths, key=lambda p: p.stat().st_mtime)
 
 def read_qr_mm_obs(input_dir:str, obs_source:str, station_id:int, clim_var:str, ssp:str, scenario:str, n_days:int)->pd.DataFrame:
 
@@ -2189,18 +2434,10 @@ def read_qr_mm_obs(input_dir:str, obs_source:str, station_id:int, clim_var:str, 
         # Path to input file
         if scenario == "obs":
             path2dir = Path(input_dir) / "qr_files" / "observations" 
-            all_days_file = path2dir / f"{obs_source}_{station_id}_{clim_var}_qr_{scenario}.nc"
-            nday_file = path2dir / f"{obs_source}_{station_id}_{clim_var}_qr_{scenario}_{n_days}days.nc"
+            path2file = path2dir / f"{obs_source}_{station_id}_{clim_var}_qr_{scenario}_{n_days}days.nc"
         else:
             path2dir = Path(input_dir) / "qr_files" / "model_mean" / ssp
-            all_days_file = path2dir / f"{obs_source}_{station_id}_{clim_var}_qr_mm_{ssp}_{scenario}.nc"
-            nday_file = path2dir / f"{obs_source}_{station_id}_{clim_var}_qr_mm_{ssp}_{scenario}_{n_days}days.nc"
-        
-        #print("all_days:", all_days_file, all_days_file.exists())
-        #print("nday    :", nday_file.exists())
-        
-        # Use the newest file
-        path2file = newest_qr_file(all_days_file, nday_file)
+            path2file = path2dir / f"{obs_source}_{station_id}_{clim_var}_qr_mm_{ssp}_{scenario}_{n_days}days.nc"
         
         # Open data NetCDF file and read quantiles for all the days of year for a given "n_days" number of days
         qr_ds = xr.open_dataset(path2file)
@@ -2221,7 +2458,7 @@ def read_qr_mm_obs(input_dir:str, obs_source:str, station_id:int, clim_var:str, 
     
     # Return None if the file is not found
     except FileNotFoundError as e:
-        print(e)
+        #print(e)
         return None 
     
     # Return None with all other possible errors
@@ -2265,11 +2502,7 @@ def read_qr_sm_obs(input_dir:str, obs_source:str, station_id:int, clim_var:str, 
         path2dir = Path(input_dir) / "qr_files" / "single_models" / ssp
 
         # Filenames
-        all_days_file = path2dir / f"{obs_source}_{station_id}_{clim_var}_qr_sm_{ssp}_{case}.nc"
-        nday_file = path2dir / f"{obs_source}_{station_id}_{clim_var}_qr_sm_{ssp}_{case}_{n_days}days.nc"
-
-        # Pick the newest existing file
-        path2file = newest_qr_file(all_days_file, nday_file)
+        path2file = path2dir / f"{obs_source}_{station_id}_{clim_var}_qr_sm_{ssp}_{case}_{n_days}days.nc"
         
         # Open data NetCDF file and read quantiles for all the days of year for a given "n_days" number of days
         qr_ds = xr.open_dataset(path2file).sel(n_days=n_days,day_of_year=doy_index)
@@ -2292,139 +2525,6 @@ def read_qr_sm_obs(input_dir:str, obs_source:str, station_id:int, clim_var:str, 
 
 ####################################################################################### Functions for constructing the CDFs and PDFs for daily pseudo-observations #########################################################
 
-def frsgs(y, valmax, valmin, nbins):
-    
-    # This function converts a sample of (original or modified) observations (y)
-    # to a continuous SGS probability distribution (f). The corresponding
-    # cumulative distribution (cub_prob) is also calculated.
-    
-        
-    # Calculation of mean, standard deviation, skewness and excess kurtosis
-    # (using wikipedia formulas; estimate for skewness is only unbiased
-    # for symmetric distributions)  
-    
-    EPS=1e-3
-    resol=(valmax-valmin)/(nbins-1)
-
-        
-    n = len(y)
-    f = np.zeros((nbins))
-    cum_prob = np.zeros((nbins))
-    
-    m1=0
-    m2=0
-    m3=0
-    m4=0
-    ndata=0
-    for i in np.arange(0, n):
-        if np.isfinite(y[i]):
-           m1=m1+y[i]
-           ndata=ndata+1
-        
-     
-    m1=m1/ndata        
-    for i in np.arange(0,n):
-        if np.isfinite(y[i]):    
-           m2=m2+((y[i]-m1)**2.)/ndata
-           m3=m3+((y[i]-m1)**3.)/ndata
-           m4=m4+((y[i]-m1)**4.)/ndata
-
-    std=np.sqrt((ndata-0.)/(ndata-1.)*m2)
-    skew=m3/(std**3.)
-    variance = std**2
-    kurt=(ndata+1.)*ndata/((ndata-1.)*(ndata-2.)*(ndata-3.))*ndata*m4/(std**4.) -3*(ndata-1.)*(ndata-1.)/((ndata-2.)*(ndata-3.))
-    
-    if kurt < 3./2.*(skew**2.):
-          kurt=3./2.*(skew**2.)+EPS
-  
-    
-    #  SGS parameters using Eqs. 8a-8c in Sardesmukh et al. 2015
-    # (J. Climate, 28, 9166-9187)
-    
-    # e2=np.maximum(2./3.*(kurt-3./2.*(skew**2.)/(kurt+2-(skew**2.))),
-    #               1.-1./np.sqrt(1+(skew**2.)/4.)+EPS) 
-
-    e2=np.maximum(np.maximum(2./3.*(kurt-3./2.*(skew**2.)/(kurt+2-(skew**2.))),\
-           1.-1./np.sqrt(1+(skew**2.)/4.)+EPS),EPS)
-
-    if (e2 > 2./3.):
-          e2=2./3.*(1.-EPS)
-
-    
-    g=skew*std*(1.-e2)/(2*np.sqrt(e2))
-    b2=2*(std**2.)*(1-e2/2.-((1-e2)**2.)/(8.*e2)*(skew**2.))
-    
-    if b2 < 0:
-        f[:]=np.nan
-        cum_prob[:]=np.nan    
-        
-        return f, cum_prob, (m1, variance, skew, kurt)
-    
-    # Calculation of the probability density function, first unnormalized.
-    # Note that it is assumed that there is no probability mass beyond the range 
-    # fmin...fmax -> these need to be put far enough in the tails.    
-   
-    
-    for ind in np.arange(0, nbins):
-        x=valmin+(ind-1.)/(nbins-1.)*(valmax-valmin)-m1
-        f[ind]=np.log((np.sqrt(e2)*x+g)**2.+b2)*(-1.-1./e2) +(2*g/(e2*np.sqrt(b2))*np.arctan((np.sqrt(e2)*x+g)/np.sqrt(b2)))
-    
-    fmax=f[0]
-    for ind in np.arange(1,nbins):
-        if f[ind] > fmax:
-            fmax=f[ind]
- 
-    
-    sumf=0.
-    for ind in np.arange(0,nbins):  
-        f[ind]=np.exp(f[ind]-fmax)
-  
-    for ind in np.arange(0,nbins):
-        sumf=sumf+resol*f[ind]
-  
-    for ind in np.arange(1,nbins):
-        f[ind]=f[ind]/sumf
-
-    
-    cum_prob[0] = 0. 
-    for ind in np.arange(1,nbins):
-        cum_prob[ind]=cum_prob[ind-1]+resol*(f[ind]+f[ind-1])/2.
-  
-    for ind in np.arange(1,nbins):
-        cum_prob[ind]=cum_prob[ind]/cum_prob[nbins-1] 
-  
-    
-    return f, cum_prob, (m1, variance, skew, kurt)
-
-def calculate_sgs(obs_df, valmax, valmin, nbins):
-
-    
-    obs_df = pd.DataFrame(obs_df)
-    
-    n_mod = obs_df.shape[1]
-    
-    resol=(valmax-valmin)/(nbins-1)
-    index = np.arange(valmin, valmax+resol, resol).round(3)
-
-    
-    f_arr = np.zeros((len(index), n_mod))
-    cp_arr = np.zeros((len(index), n_mod))
-    
-
-        
-    # loop over all models (if there are many models)
-    for m in np.arange(0,n_mod):
-        
-        # if there is only one realization
-        if n_mod>1:
-            temp = list(obs_df[m+1].values.squeeze())
-        else:
-            temp = list(obs_df.values.squeeze())
-        
-        
-        f_arr[:,m], cp_arr[:,m],moments = frsgs(temp, valmax, valmin, nbins)
-    
-    return np.squeeze(f_arr), np.squeeze(cp_arr), moments
 
 # Find the index of an element in a given array
 def get_element_index(array:np.ndarray, element:float) -> int:
@@ -3342,18 +3442,23 @@ def find_intensity_interval(T_range:np.ndarray, CDF_target_2Darray:np.ndarray, C
         PROB = CDF_target_2Darray[index,I]
         if np.isnan(PROB):
             continue 
+        
         # Find the nearest probability in the comparison CDF array
         nearest = find_nearest(CDF_preind_2Darray[:,I],PROB)
-        
         if np.isnan(nearest):
             continue
 
         # Find the corresponding temperature index
         ind = np.where(CDF_preind_2Darray[:,I] == nearest)[0]
+        if len(ind) == 0:
+            continue
+
         # Extract the temperature corresponding to the nearest CDF value 
-        TEMP = np.squeeze(T_range[ind])
+        TEMP = np.mean(T_range[ind])
         
         temperatures.append(TEMP)
+    
+    temperatures = np.array(temperatures,dtype=float)
 
     return (np.nanpercentile(temperatures, 5), np.nanpercentile(temperatures, 95))
 
@@ -3729,13 +3834,14 @@ def print_attribution_results(
     print(f"\nProbability ratio: {format_var("pr_ratio", pr_ratio, pr_ratio_low, pr_ratio_up)}")
 
     if dI_intervals is not None:
-        print(f"Change in intensity: ({dI:.1f}°C) ({tdiff_lower:.1f}-{tdiff_upper:.1f})")
+        print(f"Change in intensity: {dI:.1f}°C ({tdiff_lower:.1f}°C - {tdiff_upper:.1f}°C)")
     else:
         print(f"Change in intensity: {dI:.1f}°C")
     
 def plot_time_series(path2figures:str,
+    obs_source:str,
     clim_var:str,
-    place:str,
+    name:str,
     target_year:int,
     obs_df:pd.DataFrame,
     pseudo_obs_mm_target_df:pd.DataFrame,
@@ -3753,10 +3859,10 @@ def plot_time_series(path2figures:str,
             Directory to save the plot
         clim_var: str
             Climate variable (tas, tasmax, tasmin)
-        place: str
+        name: str
             Name of the weather station
         target_year: int
-            Year of target observation
+            Year of target observation (e.g. 2026 for present-day climate)
         obs_df: pd.DataFrame
             Temperature observations (rows = years, day_of_year = columns)
         pseudo_obs_mm_target_df: pd.DataFrame
@@ -3784,7 +3890,9 @@ def plot_time_series(path2figures:str,
         start_year = 1901
     else:
         start_year = pseudo_obs_mm_target_df.index.min()
-
+    
+    pseudo_obs_mm_target_df.columns.astype(int)
+    
     # Construct a time-period string 
     time_period, figname_date_string = get_date_strings(doy_index, n_days)
     
@@ -3798,7 +3906,7 @@ def plot_time_series(path2figures:str,
     obs_temp_plot = obs_df.loc[slice(str(start_year),str(target_year)),doy_index]
 
     # Time series of daily mean temperature pseudo-observations in the target year climate
-    target_obs = pseudo_obs_mm_target_df.loc[slice(str(start_year),str(target_year))][doy_index]
+    target_obs = pseudo_obs_mm_target_df.loc[str(start_year):str(target_year),int(doy_index)]
     
     # Take 5-95 % of the model spread
     target_up = pseudo_obs_sm_target_df.groupby(level="year").quantile(0.95)[doy_index].loc[slice(start_year,target_year)]
@@ -3817,14 +3925,13 @@ def plot_time_series(path2figures:str,
     ax.plot(obs_temp_plot.index, obs_temp_plot, color='k', linewidth=1.5, label='Observations')
 
     # Plot pseudo-observations with error bars
-    ax.scatter(target_obs.index.values, target_obs, label=f'Pseudo-observations in {target_year}')
-    ax.errorbar(target_obs.index.values, target_obs, yerr=errors, fmt='o', ecolor = 'red')
+    ax.errorbar(target_obs.index.values, target_obs, yerr=errors, fmt='o', ecolor = 'red', label=f"Pseudo-observations {target_year}")
 
     # Highlight the target year with a horizontal line
     ax.axhline(y=obs_temp_plot.loc[target_year], linestyle='--')
 
     # Adjust axes, legend, etc.
-    #ax.set_title(f"{place.replace('_', ' ').title()}, {time_period}", fontsize=15, pad=25)
+    ax.set_title(f"{name.replace('_', ' ').title()}, {time_period}", fontsize=15, pad=25)
     ax.set_ylabel(ylabel_string,fontsize=14)
     ax.set_xlabel("Year",fontsize=14)
     ax.set_xlim(start_year-1, target_year+1)
@@ -3833,20 +3940,23 @@ def plot_time_series(path2figures:str,
     ax.legend(frameon=False, loc='upper center', bbox_to_anchor=(0.55, 1.09), ncol=3, fontsize=12)
 
     # Save the figure
-    figure_name = f"time_series_plot_{clim_var}_{place}_{figname_date_string}.png"
+    figure_name = f"time_series_plot_{clim_var}_{obs_source}_{name}_{figname_date_string}.png"
     plt.savefig(os.path.join(path2figures,figure_name),dpi=300,bbox_inches="tight")
 
-
+# A function that plots all observations and some quantile functions
 def plot_observations(
-        path2figures:str,
-        clim_var:str,
-        place:str,
-        target_year:int,
-        obs_df:pd.DataFrame,
-        qr_obs_df:pd.DataFrame,
-        doy_index:int,
-        n_days:int)-> None:
-    
+        path2figures: str,
+        obs_source:str,
+        clim_var: str,
+        name: str,
+        target_year: int,
+        obs_df: pd.DataFrame,
+        qr_obs_df: pd.DataFrame,
+        doy_index: int,
+        n_days: int) -> None:
+
+    import matplotlib.lines as mlines
+
     """
     Plots all observed daily temperature observations or their 2 to 31-day running means from a selected weather station and a few quantile functions (e.g. 0.01, 0.10, 0.50, 0.90, 0.99).
 
@@ -3855,7 +3965,7 @@ def plot_observations(
             Directory to save the plot.
         clim_var: str
             Climate variable (e.g. tas, tasmax or tasmin)
-        place: str 
+        name: str 
             Name of the weather station
         target_year: int 
             Year of target observation
@@ -3872,67 +3982,74 @@ def plot_observations(
         None: The figure is saved as a PNG file.
     """
 
-    # For even number of n_days, doy_index is the last day of the period (e.g. for 1-4 Jan, doy_index = 4)
-    # This function shifts the doy_index from the last day of the time-period to the latter center day for the purpose of plotting observations
-    def shift_days(doy_array, n_days):
-        shift = (n_days - 1) // 2
-        return ((doy_array - 1 - shift) % 365) + 1
-    
-    def shift_quantiles(qr_obs:pd.Series, n_days:int)-> pd.Series:
-        doy = qr_obs.index.to_numpy()
-        shifted_doy = shift_days(doy, n_days)
-        shifted_qr_obs = pd.Series(qr_obs.values,index=shifted_doy)
-
-        return shifted_qr_obs.sort_index()
-    
-    # Strings corresponding to the given climate variable
+    # Labels of climate variables
     clim_var_map = {
         "tas": "mean temperature",
         "tasmax": "maximum temperature",
         "tasmin": "minimum temperature"
     }
 
-    # Get time-period strings for legend and figure name
+    # Get the time-period for figure name and labels
     time_period, figname_date_string = get_date_strings(doy_index, n_days)
 
-    # Legend label for other than the target observation 
+    # Observation label
     if n_days > 1:
         obs_label = f"{n_days}-day mean of daily \n {clim_var_map.get(clim_var, clim_var)}"
     else:
-        obs_label = f"{clim_var_map.get(clim_var, clim_var)}"
-        
-    # Melt pivoted observation DataFrame for plotting
+        obs_label = clim_var_map.get(clim_var, clim_var)
+
+    
+    # Change the shape of the DataFrame for plotting and get the target observation
     obs_melted_df = melt_obs_df(obs_df)
+    target_obs = obs_df.loc[target_year, doy_index]
 
-    # Get target observation
-    target_obs = obs_df.loc[target_year][doy_index]
-
-    # ---- Plot observations ----
+    # Create the figure
     fig, ax = plt.subplots(figsize=(10, 6))
 
-    # Add shading to highlight the range
-    
+    # Find the start and end days of the fixed window from 'n_days' and 'doy_index'
     if n_days % 2 == 1:
-        # odd: doy_index is the center day
-        half = (n_days - 1) // 2
+        half = n_days // 2
         start = doy_index - half
         end = doy_index + half
     else:
-        # even: doy_index is the end day (trailing window)
-        start = doy_index - n_days + 1
-        end = doy_index
+        start = doy_index - (n_days // 2)
+        end = doy_index + (n_days // 2 - 1)
 
-    ax.axvspan(
-        start,
-        end,
-        color="#d62728",
-        alpha=0.15,
-        zorder=0)
+    # Wrap into the range 1–365
+    start = (start - 1) % 365 + 1
+    end = (end - 1) % 365 + 1
 
-    # Days of year
-    days = np.arange(1, 366, 1)
+    # Draw shading
+    if start <= end:
+        ax.axvspan(
+            start,
+            end,
+            color="#d62728",
+            alpha=0.15,
+            zorder=0
+        )
+    else:
+        # Window crosses New Year
+        ax.axvspan(
+            start,
+            365,
+            color="#d62728",
+            alpha=0.15,
+            zorder=0
+        )
 
-    # Colors for quantiles
+        ax.axvspan(
+            1,
+            end,
+            color="#d62728",
+            alpha=0.15,
+            zorder=0
+        )
+
+    # 365 days in a year
+    days = np.arange(1, 366)
+
+    # Quantile colors
     if qr_obs_df.index.min() < 0.01:
         colors = {
             qr_obs_df.index.min(): 'blue',
@@ -3941,7 +4058,8 @@ def plot_observations(
             0.5: 'yellow',
             0.9: 'orange',
             0.99: 'crimson',
-            qr_obs_df.index.max(): 'magenta'}
+            qr_obs_df.index.max(): 'magenta'
+        }
     else:
         colors = {
             0.01: 'blue',
@@ -3950,91 +4068,98 @@ def plot_observations(
             0.5: 'yellow',
             0.9: 'orange',
             0.95: 'crimson',
-            0.99: 'magenta'}
-    
-    # Plot the observations and store the handles
-    if n_days % 2 == 0:
-        # For even day case, shift the doy_index and the corresponding observations from the last day to the latter center day
-        shifted_obs_doy = shift_days(obs_melted_df["day_of_year"],n_days)
-        obs_handle = ax.scatter(shifted_obs_doy, obs_melted_df.loc[shifted_obs_doy.index]["temperature"], alpha=0.3, label=obs_label)
-        target_handle = ax.scatter(shift_days(doy_index,n_days), target_obs, color="#d62728", label=f"{time_period} {target_year}", zorder=5)
-    else:
-        obs_handle = ax.scatter(obs_melted_df["day_of_year"], obs_melted_df["temperature"], alpha=0.3, label=obs_label)
-        target_handle = ax.scatter(doy_index, target_obs, color="#d62728", label=f"{time_period} {target_year}", zorder=5)
+            0.99: 'magenta'
+        }
 
-    # Plot quantiles and store handles
+    # Plot observations
+    obs_handle = ax.scatter(
+        obs_melted_df["day_of_year"],
+        obs_melted_df["temperature"],
+        alpha=0.3,
+        label=obs_label
+    )
+
+    target_handle = ax.scatter(
+        doy_index,
+        target_obs,
+        color="#d62728",
+        label=f"{time_period} {target_year}",
+        zorder=5
+    )
+
+    # Plot the quantiles
     quantile_handles = []
-    for q in colors.keys():
-        
-        # Get the number of decimals
-        decimals = str(q).split(".")[-1]
-        if len(decimals) >= 3:
-            label = label=f"{q:.3f}"
-        else:
-            label = label=f"{q:.2f}"
-        if n_days % 2 == 0:
-            # For even day case, shift the doy_index and the corresponding quantile functions from the last day to the latter center day
-            shifted_days = sorted(shift_days(days,n_days))
-            shifted_quantiles = shift_quantiles(qr_obs_df.loc[q],n_days)
-            line, = ax.plot(shifted_days, shifted_quantiles, label=label,color=colors[q])
-        else:
-            line, = ax.plot(days, qr_obs_df.loc[q], label=label,color=colors[q])
+
+    for q, color in colors.items():
+
+        label = f"{q:.2f}" if q < 0.1 else f"{q:.2f}"
+
+        line, = ax.plot(
+            days,
+            qr_obs_df.loc[q],
+            label=label,
+            color=color
+        )
+
         quantile_handles.append(line)
 
-    # ---- Legends ----
-    
-    # Observation legend
-    obs_legend_ax = fig.add_axes([0.88, 0.5, 0.15, 0.35])  # left, bottom, width, height
+    # Adjust legends
+    obs_legend_ax = fig.add_axes([0.88, 0.5, 0.15, 0.35])
     obs_legend_ax.axis("off")
-    obs_legend_ax.legend(handles=[obs_handle, target_handle],
-                        labels=[obs_label, f"{time_period} {target_year}"],
-                        title=r"$\mathbf{Observations}$",
-                        loc="center",
-                        fontsize=11,
-                        title_fontsize=12)
+    obs_legend_ax.legend(
+        handles=[obs_handle, target_handle],
+        labels=[obs_label, f"{time_period} {target_year}"],
+        title=r"$\mathbf{Observations}$",
+        loc="center",
+        fontsize=11,
+        title_fontsize=12
+    )
 
-    # Quantile legend
     quantile_legend_ax = fig.add_axes([0.88, 0.25, 0.15, 0.35])
     quantile_legend_ax.axis("off")
-    quantile_legend_ax.legend(handles=quantile_handles,
-                            title=r"$\mathbf{Quantiles}$",
-                            loc="center",
-                            fontsize=12,
-                            title_fontsize=13)
+    quantile_legend_ax.legend(
+        handles=quantile_handles,
+        title=r"$\mathbf{Quantiles}$",
+        loc="center",
+        fontsize=12,
+        title_fontsize=13
+    )
 
-    # --- Adjust axes ---
-    month_start_days = np.array([1, 32, 61, 92, 122, 153, 183, 214, 245, 275, 306, 336, 365])
-    month_labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'June','July', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec' , 'Jan']
-    
+    # Axis formatting
+    month_start_days = np.array(
+        [1, 32, 61, 92, 122, 153, 183, 214, 245, 275, 306, 336, 365]
+    )
+    month_labels = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'June',
+        'July', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan'
+    ]
+
     ax.set_xticks(month_start_days)
     ax.set_xticklabels(month_labels, fontsize=13)
 
-    # Set a grid on y-axis
     ax.grid(True, axis="y")
 
-    # Draw vertical lines as a grid for every second month on the x-axis
     for x in month_start_days[::2]:
         ax.axvline(x, linestyle="-", linewidth=0.8, alpha=0.6, color="gray")
-    
+
     ax.tick_params(axis='y', labelsize=13)
     ax.set_xlim(1, 365)
     ax.set_xlabel("Month", fontsize=15)
     ax.set_ylabel(r"Temperature [$^{\circ}$C]", fontsize=15)
-    ax.set_title(f"{place.replace('_', ' ').title()}", fontsize=20)
+    ax.set_title(f"{name.replace('_', ' ').title()}", fontsize=20)
 
-    # Make room for legend
     plt.subplots_adjust(left=0.07, right=0.80, top=0.95, bottom=0.10)
-    
-    # ---- Save the figure ----
-    figure_name = f"observation_plot_{clim_var}_{place}_{figname_date_string}.png"
-    save_path = os.path.join(path2figures, figure_name)
-    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+
+    # Save the figure
+    figure_name = f"observation_plot_{clim_var}_{obs_source}_{name}_{figname_date_string}.png"
+    plt.savefig(os.path.join(path2figures, figure_name), dpi=300, bbox_inches="tight")
 
 
 def plot_distributions(
     path2figures:str,
     attribution_cases:dict,
     obs_source:str,
+    clim_var:str,
     station_meta:dict,
     ssp:str,
     T_range:np.ndarray,
@@ -4322,7 +4447,7 @@ def plot_distributions(
     ax2.annotate("(b)", (0.0, 1.02), xycoords="axes fraction", fontsize=18)
 
     # Save the figure
-    figure_name = f"distribution_plot_{obs_source}_{station_meta["station_id"]}_{fig_name_date_string}.png"
+    figure_name = f"distribution_plot_{clim_var}_{obs_source}_{station_meta["name"]}_{fig_name_date_string}.png"
     plt.savefig(os.path.join(path2figures, figure_name), dpi=300, bbox_inches="tight")
     #plt.show()
 
@@ -4331,6 +4456,7 @@ def plot_distributions(
 def plot_model_statistics(
     path2figures:str,
     obs_source:str,
+    clim_var:str,
     station_meta:dict,
     doy_index:int,
     n_days:int,
@@ -4390,8 +4516,9 @@ def plot_model_statistics(
     # Number of models
     n_models = len(model_names)
 
-    # Station name
+    # Station ID number and name
     station_id = station_meta["station_id"]
+    name = station_meta["name"]
 
     # Get bootstrap results to arrays
     preind_array = bootstrapping_dict["preind"]
@@ -4418,8 +4545,20 @@ def plot_model_statistics(
         PRratios = np.transpose(preind_array[index,:,:] / target_array[index,:,:])
 
     # Filter out any NaN values from the probability ratios array
-    mask = ~np.isnan(PRratios)
-    filtered_data = [d[m] for d, m in zip(PRratios.T, mask.T)]
+    finite_mask = np.isfinite(PRratios)
+    inf_mask = np.isinf(PRratios)
+
+
+    cap = 10000
+    PRratios_plot = PRratios.copy()
+    PRratios_plot[inf_mask] = cap
+
+    #mask = ~np.isnan(PRratios)
+    filtered_data = [d[np.isfinite(d)] for d in PRratios_plot.T]
+
+    filtered_data = [d if len(d) > 0 else np.array([np.nan]) for d in filtered_data]
+    
+    #filtered_data = [d[m] for d, m in zip(PRratios.T, mask.T)]
 
     # Get the probability ratio for the multi-model mean (MMM)
     pr_ratio_bp = np.array(probabilities["pr_ratio"])
@@ -4459,7 +4598,18 @@ def plot_model_statistics(
 
     # Adjust axes
     ax.yaxis.tick_right()  # Move the y-axis ticks to the right
-    ax.set_xlim(0.1, np.max(filtered_data))
+    
+    all_data = np.concatenate(filtered_data)
+    finite_data = all_data[np.isfinite(all_data)]
+
+    if len(finite_data) == 0:
+        xmax = 10
+    else:
+        xmax = np.nanmax(finite_data)
+
+    ax.set_xlim(0.1, xmax)
+
+    #ax.set_xlim(0.1, np.max(filtered_data))
     ax.set_xlabel("Probability ratio")
     ax.set_xscale('log')
     ax.invert_yaxis()
@@ -4506,71 +4656,177 @@ def plot_model_statistics(
                     boxprops=boxprops)
     
     # Adjust axes
-    ax.set_xlim(0, np.max(deltaI)+1)
+    #ax.set_xlim(0, np.max(deltaI)+1)
     ax.set_xlabel(r'Change in intensity [$^{\circ}$C]')
 
     # Save the figure
-    figure_name = f"model_statistics_{obs_source}_{station_id}_{fig_date_name_string}.png"
+    figure_name = f"model_statistics_{clim_var}_{obs_source}_{name}_{fig_date_name_string}.png"
     plt.savefig(os.path.join(path2figures, figure_name), dpi=300, bbox_inches="tight")
     #plt.show()
 
-
-def plot_rank_histogram(path2figures:str, place:str, observations_df:pd.DataFrame, quantile_regressed_obs_df:pd.DataFrame)-> None:
-
+def save_attribution_results(
+    path2results: str,
+    attribution_cases: dict,
+    obs_source: str,
+    station_meta: dict,
+    clim_var: str,
+    doy_index: int,
+    n_days: int,
+    target_value: float,
+    target_anomaly: float,
+    target_anomaly_std: float,
+    probabilities: dict,
+    percentile_temps: dict,
+    dI_intervals: dict | None = None):
+    
     """
-    Plots and saves a normalized rank histogram to evaluate the distribution of observed daily temperatures 
-    relative to quantile-regressed predictions.
+    Save event attribution results to a CSV file and return them as a DataFrame.
 
-    Args:
-        path2figures (str): Directory to save the rank histogram figure.
-        place (str): Name of the location or station (used in the filename and title).
-        observations_df (pd.DataFrame): Observed daily temperatures (rows: years, columns: days of the year).
-        quantile_regressed_obs_df (pd.DataFrame): Quantile-regressed predictions (rows: quantiles, columns: days of the year).
+    The output contains station metadata, event characteristics, probabilities,
+    temperature thresholds, probability ratios, and intensity-change metrics for
+    the specified attribution cases. Optional confidence intervals can be included
+    for probabilities and temperature-based metrics.
 
-    Returns:
-        None: Saves the histogram as a PNG file and displays the plot.
+    Parameters
+    ----------
+    path2results : str
+        Output directory for the CSV file.
+    attribution_cases : dict
+        Attribution years (e.g., ``"preind"``, ``"target"``, ``"future"``).
+    obs_source : str
+        Name of the observational dataset.
+    station_meta : dict
+        Station metadata containing ID, name, latitude, and longitude.
+    clim_var : str
+        Climate variable name.
+    doy_index : int
+        Day-of-year index of the analyzed event.
+    n_days : int
+        Event duration in days.
+    target_value : float
+        Event temperature in the target year (°C).
+    target_anomaly : float
+        Event temperature anomaly (°C).
+    target_anomaly_std : float
+        Standardized temperature anomaly.
+    probabilities : dict
+        Event probabilities, probability ratio, and optional confidence intervals.
+    percentile_temps : dict
+        Temperature thresholds corresponding to the event probability.
+    dI_intervals : dict | None, optional
+        Confidence intervals for temperature thresholds and intensity change.
 
-    """        
-    # Get the quantile values and observations
-    quantiles = quantile_regressed_obs_df.index.values  # Quantile levels
-    n_quantiles = len(quantiles)  # Number of quantiles
-    observations = observations_df.values  # Observations (day_of_year x year matrix)
-    quantile_values = quantile_regressed_obs_df.values  # Quantile estimates (quantile x day_of_year)
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame containing the attribution results that are also saved to CSV.
+    """
 
-    # Initialize an empty list to store ranks
-    ranks = []
-    
-    # Iterate over each day of the year
-    for day_idx in range(observations.shape[1]):
-        day_observations = observations[:, day_idx]  # Observations for the current day (all years)
-        day_quantiles = quantile_values[:, day_idx]  # Quantile predictions for the current day
+    time_period, figname_date_string = get_date_strings(doy_index, n_days)
 
-        # Remove NaN values from both observations and quantiles
-        valid_mask = ~np.isnan(day_observations)
-        valid_observations = day_observations[valid_mask]
+    rows = []
 
-        if valid_observations.size > 0:  # Skip if no valid observations
-            day_ranks = np.sum(valid_observations[:, None] > day_quantiles, axis=1)  # Count quantiles exceeded
-            ranks.extend(day_ranks)  # Append ranks to the overall list
+    # Station Metadata
+    station_id = station_meta["station_id"]
+    name = station_meta["name"]
+    lat = station_meta["latitude"]
+    lon = station_meta["longitude"]
 
-    # Normalize the histogram
-    rank_counts, bin_edges = np.histogram(ranks, bins=np.arange(n_quantiles + 2) - 0.5)
-    normalized_counts = rank_counts / np.sum(rank_counts)  # Normalize by total count
+    preind_year = attribution_cases.get("preind")
+    target_year = attribution_cases.get("target")
+    future_year = attribution_cases.get("future")
 
-    # Plot the normalized histogram
-    plt.figure(figsize=(10, 6))
-    plt.bar(np.arange(n_quantiles + 1), normalized_counts, width=1, edgecolor="black", alpha=0.7, color="skyblue")
-    plt.xticks(np.arange(0,101,5), labels=np.arange(0,101,5))
-    plt.xlabel("Percentile rank [%]")
-    plt.ylabel("Frequency")
-    plt.title(f"Normalized Rank Histogram of Observations")
-    plt.grid(axis="y", linestyle="--", alpha=0.7)
-    plt.tight_layout()
-    
+    # Function for adding a row
+    def add_row(metric, year, value, low=None, high=None, unit=""):
+        rows.append({
+            "obs_source": obs_source,
+            "station_id": station_id,
+            "station_name": name,
+            "lat": lat,
+            "lon": lon,
+            "variable": clim_var,
+            "n_days": n_days,
+            "metric": metric,
+            "year": year,
+            "value": value,
+            "ci_low": low,
+            "ci_high": high,
+            "unit": unit
+        })
+
+    # Probabilities
+    add_row("probability", preind_year,
+            probabilities["preind"],
+            probabilities.get("preind_low"),
+            probabilities.get("preind_up"),
+            "")
+
+    add_row("probability", target_year,
+            probabilities["target"],
+            probabilities.get("target_low"),
+            probabilities.get("target_up"),
+            "")
+
+    if future_year and "future" in probabilities:
+        add_row("probability", future_year,
+                probabilities["future"],
+                probabilities.get("future_low"),
+                probabilities.get("future_up"),
+                "")
+
+    # Temperatures
+    t_preind = percentile_temps["t_preind"]
+
+    if dI_intervals:
+        add_row("temperature", preind_year,
+                t_preind,
+                dI_intervals["t_preind_lower"],
+                dI_intervals["t_preind_upper"],
+                "°C")
+    else:
+        add_row("temperature", preind_year, t_preind, None, None, "°C")
+
+    add_row("temperature", target_year, target_value, None, None, "°C")
+    add_row("temperature_anomaly", target_year, target_anomaly, None, None, "°C")
+    add_row("temperature_anomaly_std", target_year, target_anomaly_std, None, None,"")
+
+    if future_year and "t_future" in percentile_temps:
+        if dI_intervals:
+            add_row("temperature", future_year,
+                    percentile_temps["t_future"],
+                    dI_intervals.get("t_future_lower"),
+                    dI_intervals.get("t_future_upper"),
+                    "°C")
+        else:
+            add_row("temperature", future_year,
+                    percentile_temps["t_future"], None, None, "°C")
+
+    # Probability ratio
+    add_row("probability_ratio", "N/A",
+            probabilities["pr_ratio"],
+            probabilities.get("pr_ratio_low"),
+            probabilities.get("pr_ratio_up"),
+            "")
+
+    # Intensity change
+    dI = target_value - t_preind
+
+    if dI_intervals:
+        add_row("intensity_change", "N/A",
+                dI,
+                dI_intervals["tdiff_lower"],
+                dI_intervals["tdiff_upper"],
+                "°C")
+    else:
+        add_row("intensity_change", "N/A", dI, None, None, "°C")
+
     # Save the figure
-    figure_name = f"rank_histogram_{place}_obs.png"
-    plt.savefig(os.path.join(path2figures, figure_name), dpi=300, bbox_inches="tight")
-    #plt.show()
+    file_name = f"{obs_source}_{station_id}_{clim_var}_{figname_date_string}.csv"
+    df = pd.DataFrame(rows)
+    df.to_csv(os.path.join(path2results,file_name), index=False)
+
+    return df
+
 
 ###########################################################################################################################################################################################
 
