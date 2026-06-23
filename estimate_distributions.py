@@ -41,8 +41,7 @@ First, define the parameters which govern what observations are used.
 
 # Frost client ID (You need this to download MetNorway observations from Frost API)
 # You can obtain a personal ID from: https://frost.met.no/authentication.html (Set 'frost_client_id' = None, if you don't have it)
-frost_client_id = "9a43639e-6f86-4a9e-b664-a2fbddf57b81"
-#frost_client_id = None
+frost_client_id = None
 
 # Observations source (FMI, SMHI, METNO)
 obs_source = "METNO"
