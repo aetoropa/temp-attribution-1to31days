@@ -55,7 +55,7 @@ where "station_id" is the ID number of the station, "name" is the station's name
 
 You also need to define the ```obs_source``` and ```clim_var``` variables accordingly.
 
-<img width="684" height="562" alt="image" src="https://github.com/user-attachments/assets/b58c7735-16c2-4db0-beee-2247cf269b8c" />
+<img width="684" height="562" alt="image" src="https://github.com/user-attachments/assets/b58c7735-16c2-4db0-beee-2247cf269b8c" />\
 Figure 1. The structure of the pivoted pandas DataFrame which contains daily mean temperature observations from the Karasjok and Karasjok-Markannjarga stations from 01-01-1900 to 12-31-2025. The columns of the DataFrame are "day_of_year" and the index is "year".
 
 ### Years and time-period
