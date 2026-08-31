@@ -49,7 +49,7 @@ daily_temp_obs_df, station_meta = functions.read_daily_obs(obs_source, clim_var,
 
 with these two lines:\
 daily_temp_obs_df = functions.read_daily_obs_from_csv("/home/aetoropa/Downloads/karasjok_daily.csv")\
-station_meta = {'station_id': SN97251, 'name': 'KARASJOK - MARKANNJARGA', 'latitude': 69.4635, 'longitude': 25.5023}\
+station_meta = {'station_id': SN97251, 'name': 'KARASJOK - MARKANNJARGA', 'latitude': 69.4635, 'longitude': 25.5023}
 
 where "station_id" is the ID number of the station, "name" is the station's name and "latitude" and "longitude" are its coordinates. You need to specify values to all these keys in the ```station_meta``` dictionary.
 
