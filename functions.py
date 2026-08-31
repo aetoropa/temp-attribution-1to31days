@@ -1300,6 +1300,44 @@ def read_daily_obs(obs_source:str, clim_var:str, station_id:str, station2_id:str
 
     return daily_temp_obs_df, station_meta
 
+def read_daily_obs_from_csv(path2csv_file:str)->pd.DataFrame:
+
+    # Open the csv-file (The data is assumed to be comma-separated)
+    data = pd.read_csv(path2csv_file, sep=",")
+
+    df = data[["Time(norwegian mean time)", "Mean air temperature (24 h)"]].copy()
+
+    # Rename the column names to "date" and "temperature"
+    df.columns = ["date", "temperature"]
+
+    # Convert the date to a datetime object
+    df["date"] = pd.to_datetime(df["date"], format="%d.%m.%Y", errors="coerce")
+
+    # Make sure that the temperature observations are numbers
+    df["temperature"] = pd.to_numeric(df["temperature"], errors="coerce")
+
+    # Set the date as an inded and sort the observations
+    df = df.dropna(subset=["date"])
+    df = df.set_index("date").sort_index()
+
+    # Remove leap days
+    df = df[~((df.index.month == 2) & (df.index.day == 29))]
+
+    # Pick a non-leap year for the purpose of converting dates to days of year
+    ref_year = 2001
+
+    # Create "month_day", "ref_date" and "day_of_year" columns. Days of year are taken by using a calendar of a random non-leap year 2001 
+    df["month_day"] = df.index.strftime("%m-%d")
+    df["ref_date"] = pd.to_datetime(str(ref_year) + "-" + df["month_day"])
+    df["day_of_year"] = df["ref_date"].dt.dayofyear
+
+    # Set year as an index
+    df["year"] = df.index.year
+
+    # Pivot the dataframe to a form in which each day of year has a column and year is the index
+    pivot_df = df.pivot(index="year", columns="day_of_year", values="temperature")
+
+    return pivot_df
 
 def check_obs_validity(obs_df:pd.DataFrame, doy_index:int, n_days:int, target_year:int)-> None:
 
