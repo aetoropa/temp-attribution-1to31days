@@ -38,7 +38,25 @@ The third observation parameter is:
 
 ```clim_var```  
 
-This variable defines the climate variable and follows the naming convention used in the CMIP6-data files (e.g. "tas" for mean temperature, "tasmax" for maximum temperature and "tasmin" for minimum temperature).  
+This variable defines the climate variable and follows the naming convention used in the CMIP6-data files (e.g. "tas" for mean temperature, "tasmax" for maximum temperature and "tasmin" for minimum temperature).
+
+### Using observational data from a csv-file
+
+The tool also works for temperature observations which are stored locally in a csv-file. For this purpose, the ```functions.py``` contains a script called ```read_daily_obs_from_csv``` which enables one to read daily temperature observations directly from a locally stored csv-file (See the karasjok_daily.csv file). The function ```read_daily_obs_from_csv``` can easily be tuned to read observations from another csv-file containing temperature observations. However, it is essential that the output of the function is a pivot-table with "day_of_year" as a column and "year" as an index (see Figure 1) and that observations from leap-days are removed.
+
+If you read temperature observations locally, you need to replace this line in the ```estimate_distributions.py``` program:
+daily_temp_obs_df, station_meta = functions.read_daily_obs(obs_source, clim_var, station_id, station2_id, frost_client_id=frost_client_id)
+
+with these two lines:
+daily_temp_obs_df = functions.read_daily_obs_from_csv("/home/aetoropa/Downloads/karasjok_daily.csv") # Adjust the path to your locally stored csv-file
+station_meta = {'station_id': SN97251, 'name': 'KARASJOK - MARKANNJARGA', 'latitude': 69.4635, 'longitude': 25.5023} # Adjust the values of "station_id", "name", "latitude" and "longitude" 
+
+where "station_id" is the ID number of the station, "name" is the station's name and "latitude" and "longitude" are its coordinates. You need to specify values to all these keys in the ```station_meta``` dictionary.
+
+You also need to define the ```obs_source``` and ```clim_var``` variables accordingly.
+
+<img width="684" height="562" alt="image" src="https://github.com/user-attachments/assets/b58c7735-16c2-4db0-beee-2247cf269b8c" />
+Figure 1. The structure of the pivoted pandas DataFrame which contains daily mean temperature observations from the Karasjok and Karasjok-Markannjarga stations from 01-01-1900 to 12-31-2025. The columns of the DataFrame are "day_of_year" and the index is "year".
 
 ### Years and time-period
 
@@ -91,6 +109,7 @@ The eight parameter is:
 
 which defines the end day in the period (1-31). If you intend to calculate attribution results for the date speficied by ```start_month``` and ```start_day``` variables, set ```end_day``` = None.
 
+Please note that you cannot provide a leap day (e.g. 29-Feb) as a start or end date. In addition, observations made on leap days will not be included in the time-period between start and end dates.
 
 ### Probability, scenario and uncertainty estimate
 
@@ -106,7 +125,7 @@ The second parameter you need to define is:
 
 ```ssp```
 
-which is the emission scenario for future climate (```ssp```= "ssp119", "ssp126", "ssp245" and "ssp585" are available).
+which is the emission scenario for future climate (```ssp```= "ssp119", "ssp126", "ssp245", "ssp370" and "ssp585" are available).
 
 The third parameter you need to define is:
 
@@ -142,16 +161,16 @@ Change in intensity: 2.1°C (0.3 °C - 3.3°C)
 In addition, four plots are produced:  
 
 <img width="2621" height="1517" alt="time_series_plot_tasmax_FMI_Sodankylä Tähtelä_0712-0725" src="https://github.com/user-attachments/assets/b195d451-4003-45f7-b896-6571ae145df8" />
-Figure 1. Time-series plot of the 14-day moving averge of daily maximum temperature for the period of 12-25 July. Black line shows the actual observation, blue dots show the corresponding multi-model mean pseudo-observations, representing present-day climate. The red error bars show the 5th and 95th percentiles of the ensemble of 29 model-specific pseudo-observations. The blue dashed line marks the observation (28.0 °C) of year 2025.
+Figure 2. Time-series plot of the 14-day moving averge of daily maximum temperature for the period of 12-25 July. Black line shows the actual observation, blue dots show the corresponding multi-model mean pseudo-observations, representing present-day climate. The red error bars show the 5th and 95th percentiles of the ensemble of 29 model-specific pseudo-observations. The blue dashed line marks the observation (28.0 °C) of year 2025.
 
 <img width="3295" height="1747" alt="observation_plot_tasmax_Sodankylä Tähtelä_0712-0725" src="https://github.com/user-attachments/assets/701a7a50-1b6f-410d-963a-2b99ecc22bd3" />
-Figure 2. 14-day moving avearge daily maximum temperature observations in Sodankylä, Finland from 1908 to 2025 (blue dots) and their quantile functions for the median (yellow) and selected low (green, cyan and blue) and high (orange, red and pink) quantiles. The observation corresponding to the heatwave of summer 2025 is highlighted with a red dot. The red shaded area higlights the time-period of the observation (12-25 July).
+Figure 3. 14-day moving avearge daily maximum temperature observations in Sodankylä, Finland from 1908 to 2025 (blue dots) and their quantile functions for the median (yellow) and selected low (green, cyan and blue) and high (orange, red and pink) quantiles. The observation corresponding to the heatwave of summer 2025 is highlighted with a red dot. The red shaded area higlights the time-period of the observation (12-25 July).
 
 <img width="5464" height="1965" alt="distribution_plot_FMI_Sodankylä Tähtelä_0712-0725" src="https://github.com/user-attachments/assets/d25b614b-f792-479c-90a3-88d4cbb61ed9" />
-Figure 3. (a) The frequency distribution of pseudo-observations representing the 14-day moving average of daily maximum temperatures for the time period of 12-25 July in the climate of the year 2025 in Sodankylä, Finland. The corresponding probability distribution function is shown with a blue line. The values of the first four moments are annotated in the upper left corner of the figure. (b) Probability distribution functions for the climates of the years 1900 (green line), 2025 (blue line) and 2050 (red line) under the SSP2-4.5 scenario. The black vertical line marks the observed 14-day moving average of daily maximum temperatures for the time-period of 14-25 July 2025. The probability for the temperature being at least the observed 28.0 °C is shown by the shaded area right of the vertical black line below each probability distribution function.
+Figure 4. (a) The frequency distribution of pseudo-observations representing the 14-day moving average of daily maximum temperatures for the time period of 12-25 July in the climate of the year 2025 in Sodankylä, Finland. The corresponding probability distribution function is shown with a blue line. The values of the first four moments are annotated in the upper left corner of the figure. (b) Probability distribution functions for the climates of the years 1900 (green line), 2025 (blue line) and 2050 (red line) under the SSP2-4.5 scenario. The black vertical line marks the observed 14-day moving average of daily maximum temperatures for the time-period of 14-25 July 2025. The probability for the temperature being at least the observed 28.0 °C is shown by the shaded area right of the vertical black line below each probability distribution function.
 
 <img width="2446" height="2985" alt="model_statistics_FMI_Sodankylä Tähtelä_0712-0725" src="https://github.com/user-attachments/assets/b1b468ac-9ced-423e-a69c-2baa862a6598" />
-Figure 4. Model-specific probability ratios and intensity changes of 14-day average maximum temperature for the time-period of 12-25 July, 2025 in Sodankylä, Finland. The uncertainty in the probability ratio values results from bootstrap sampling of quantiles. No uncertainty estimates are provided for the intensity changes in the individual models because only one realization per model was used to calculate the regression coefficients. The boxes show the first and third quartiles and whiskers show the 5-95th percentiles of the realization. MMM at the bottom row refers to the multi-model mean estimate.
+Figure 5. Model-specific probability ratios and intensity changes of 14-day average maximum temperature for the time-period of 12-25 July, 2025 in Sodankylä, Finland. The uncertainty in the probability ratio values results from bootstrap sampling of quantiles. No uncertainty estimates are provided for the intensity changes in the individual models because only one realization per model was used to calculate the regression coefficients. The boxes show the first and third quartiles and whiskers show the 5-95th percentiles of the realization. MMM at the bottom row refers to the multi-model mean estimate.
 
 ## More information
 
