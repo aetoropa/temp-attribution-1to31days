@@ -31,4 +31,4 @@ FMI observations are downloaded by calling the function ```read_daily_obs_from_F
 
 SMHI observations are downloaded by calling the function ```read_daily_obs_from_SMHI``` which utilizes the SMHI API: https://opendata.smhi.se/metobs/api
 
-METNO observations are downloaded by calling the function ```read_daily_obs_from_FROST``` which utilizes the FROST API: see https://frost.met.no/howto.html
+METNO observations are downloaded by calling the function ```read_daily_obs_from_FROST``` which utilizes the FROST API: https://frost.met.no/howto.html
