@@ -2,6 +2,8 @@
 
 This repository contains a Python program for estimating probability distributions of local daily mean, maximum and minimum temperatures or their 2 to 31-day moving averages in a changing climate. The program modifies local observational time-series by using (a) time-series of global mean temperature and (b) regression coefficients which estimate how the mean and variance of local temperature change in response to the global mean temperature change, resulting in a detrended time-series of "pseudo-observations". Probability distributions are estimated by applying quantile-regression to the time-series of pseudo-observations and fitting continuous probability distributions to the daily values of quantiles 0.01,...,0.99. Finally, the program calculates how intense and probable the observed temperature would be in the pre-industrial and future climates.
 
+[![DOI](https://zenodo.org/badge/1156164253.svg)](https://doi.org/10.5281/zenodo.22232258)
+
 Shield: [![CC BY 4.0][cc-by-shield]][cc-by]
 
 This work is licensed under a
