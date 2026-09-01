@@ -4,7 +4,6 @@ This repository contains a Python program for estimating probability distributio
 
 [![DOI](https://zenodo.org/badge/1156164253.svg)](https://doi.org/10.5281/zenodo.22232258)
 
-https://zenodo.org/badge/1156164253.svg
 
 Shield: [![CC BY 4.0][cc-by-shield]][cc-by]
 
